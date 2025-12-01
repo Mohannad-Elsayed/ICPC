@@ -18,6 +18,7 @@ typedef struct Q {
 map<int, int> mp;
 set<pair<int, int>> ste;
 int f;
+
 void add(int i) {
     auto it = mp.find(i);
     if (it == mp.end()) {
