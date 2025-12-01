@@ -1,0 +1,9 @@
+debug:
+sudo g++ -D_GLIBCXX_DEBUG -Wall -Wextra -pedantic -fno-inline -pipe -march=native -g -O0 -fsanitize=address,undefined -fno-omit-frame-pointer -ftime-report -x c++-header stdc++.h -o stdc++.h.gch
+-Dmhnd01s -D_GLIBCXX_DEBUG -Wall -Wextra -pedantic -fno-inline -pipe -march=native -g -O0 -fsanitize=address,undefined -fno-omit-frame-pointer -ftime-report
+
+fast:
+sudo g++ -x c++-header stdc++.h -o stdc++.h.gch
+-Dmhnd01s -ftime-report
+
+g++ -c -ftime-report
