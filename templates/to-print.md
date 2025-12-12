@@ -29,6 +29,20 @@ diff[to_row + 1][to_col + 1] += v;
 
 # BIT
 ```
+struct BIT { // 0-based
+    int n;
+    vector<int> tree;
+    explicit BIT(int size) : n(size + 2), tree(n + 1) { }
+    void add(int i, int val) {
+        for(i++; i <= n; i += i & -i) tree[i] += val;
+    }
+    int query(int i) {
+        int sum = 0;
+        for (i++; i > 0; i &= i - 1) sum += tree[i];
+        return sum;
+    }
+};
+
 template<class T>
 struct BIT { // 1-based
     int n;
@@ -1982,7 +1996,7 @@ for (int i = 0; i < n; i++)
 # Combinatorics
 ```
 namespace comb {
-    const int mod = 1e9 + 7;
+    const int mod = _-_-_-_-_-_;
     int MXS_ = 1;
     vector<int> fac_(1, 1), inv_(1, 1);
  
@@ -3461,7 +3475,7 @@ ll andRange(ll l, ll r) {
 ```
 #pragma GCC optimize("O3")
 #pragma GCC optimize ("unroll-loops")
-#pragma GCC optimize ("Ofast");
+#pragma GCC optimize ("Ofast")
 #pragma GCC target("avx2")
 ```
 
@@ -3770,4 +3784,11 @@ int rec(int u, int vis) {
             ans = (ans + rec(ver, vis | (1 << ver)))%mod;
     return ans;
 }
+```
+
+# pragmas
+```
+#pragma GCC optimize("Ofast")
+#pragma GCC optimize ("unroll-loops")
+#pragma GCC target("sse,sse2,sse3,ssse3,sse4,popcnt,abm,mmx,avx,tune=native")
 ```
