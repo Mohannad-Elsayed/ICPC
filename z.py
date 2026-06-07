@@ -1,40 +1,25 @@
-import sys
+import random
 
-def solve():
-    # Read all inputs from standard input
-    input_data = sys.stdin.read().split()
-    if not input_data:
-        return
+def generate_tle_stress_test(filename="5"):
+    # Maximum allowed odd length under standard 2e5 limits
+    n = 199999
 
-    T = int(input_data[0])
-    idx = 1
-    MOD = 10**9 + 7
+    # A random permutation of distinct elements forces widespread
+    # scattering of X[i] and Y[i] values.
+    # This guarantees massive cross-boundary DP updates in the CDQ tree,
+    # strictly requiring O(1) rollbacks per operation to pass.
+    a = list(range(1, n + 1))
 
-    for _ in range(T):
-        m = int(input_data[idx])
-        K = int(input_data[idx+1])
-        idx += 2
+    # Fixed seed for reproducibility (optional)
+    random.seed(42)
+    random.shuffle(a)
 
-        # 1. Construct the big number as a string
-        n_str_parts = []
-        for _ in range(K):
-            a = int(input_data[idx])
-            b = int(input_data[idx+1])
-            # Create a string of digit 'a' repeated 'b' times
-            n_str_parts.append(str(a) * b)
-            idx += 2
+    with open(filename, 'w') as f:
+        f.write("1\n") # 1 test case
+        f.write(f"{n}\n")
+        f.write(" ".join(map(str, a)) + "\n")
 
-        # Join the parts and convert to a Python arbitrary-precision integer
-        N = int("".join(n_str_parts))
+    print(f"Generated Fenwick stress test data in '{filename}' (N={n})")
 
-        # 2. Bruteforce loop to count multiples of m
-        count = 0
-        for x in range(1, N + 1):
-            if x % m == 0:
-                count += 1
-
-        # 3. Output the required modulo
-        print(count % MOD)
-
-if __name__ == '__main__':
-    solve()
+if __name__ == "__main__":
+    generate_tle_stress_test()

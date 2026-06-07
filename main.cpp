@@ -5,13 +5,10 @@ using namespace std;
 #define print(...) ((void)0)
 #endif
 using ll = long long;
-
 void solve();
-
 signed main() {
 #ifdef mhnd01s
-    int x = mt19937(random_device()())() % 100;
-    printf("%d\n", x);
+    int x = mt19937(random_device()())()%100;printf("%d\n", x);
     freopen("out", "wt", stdout);
 #else
     cin.tie(0)->sync_with_stdio(0);
@@ -19,57 +16,97 @@ signed main() {
     cin.exceptions(cin.failbit);
     int t = 1;
     // cin >> t;
-    while (t--) {
+    while(t--) {
         solve();
-        if (t) cout << '\n';
-    }
-    return 0;
+        if(t) cout << '\n';
+    }return 0;
 }
 
-void solve() {
-    string s;
-    cin >> s;
-    s.push_back('$');
-    int n = s.size();
-    vector<int> p(n), g(n);
-    iota(p.begin(), p.end(), 0);
-    sort(p.begin(), p.end(), [&](int i, int j) {
-        return s[i] < s[j];
-    });
-    for (int i = 1; i < n; i++) g[p[i]] = g[p[i-1]] + (s[p[i]] != s[p[i-1]]);
+namespace corasick {
+    const int N = 1001000;
+    const int SIGMA = 26;
 
-    for (int k = 1; k < n; k <<= 1) {
-        for (auto &i : p) i = (i - k + 2 * n) % n;
-        vector<int> cnt(n), pos(n), np(n), ng(n);
-        for (auto x : g) cnt[x]++;
-        for (int i = 1; i < n; i++) pos[i] = pos[i-1] + cnt[i-1];
+    int nxt[N][SIGMA];
+    int fail_link[N];
+    int dict_link[N];
+    int match_idx[N];
+    int nodes;
 
-        for (int i = 0; i < n; i++)
-            np[pos[g[p[i]]]++] = p[i];
+    void init() {
+        nodes = fail_link[0] = dict_link[0] = 0;
+        memset(nxt[0], 0, sizeof(nxt[0]));
+        match_idx[0] = -1;
+        nodes++;
+    }
 
-        p = np;
-        ng[p[0]] = 0;
-        for (int i = 1; i < n; i++) {
-            pair<int, int> now = {g[p[i]], g[(p[i] + k) % n]};
-            pair<int, int> prv = {g[p[i-1]], g[(p[i-1] + k) % n]};
-            ng[p[i]] = ng[p[i-1]] + (now != prv);
+    int create_node() {
+        memset(nxt[nodes], 0, sizeof(nxt[nodes]));
+        fail_link[nodes] = dict_link[nodes] = 0;
+        match_idx[nodes] = -1;
+        return nodes++;
+    }
+
+    int insert(const string& pattern, int id) {
+        int cur = 0;
+        for (char c : pattern) {
+            if (!nxt[cur][c]) {
+                nxt[cur][c] = create_node();
+            }
+            cur = nxt[cur][c];
         }
-        g = ng;
-
-        if (g[p[n-1]] == n-1) break;
+        if (~match_idx[cur]) return match_idx[cur];
+        return match_idx[cur] = id;
     }
 
-    vector<int> lcp(n);
-    for (int i = 0, k = 0; i+1 < n; i++) {
-        int j = p[g[i]-1];
-        while (s[i + k] == s[j + k]) k++;
-        lcp[g[i]] = k;
-        k = max(k-1, 0);
+    void build() {
+        queue<int> q;
+
+        for (int c = 0; c < SIGMA; ++c) {
+            int chi = nxt[0][c];
+            if (chi) {
+                fail_link[chi] = dict_link[chi] = 0;
+                q.push(chi);
+            }
+        }
+
+        while (!q.empty()) {
+            int u = q.front();
+            q.pop();
+
+            for (int c = 0; c < SIGMA; ++c) {
+                int chi = nxt[u][c];
+
+                if (chi) {
+                    fail_link[chi] = nxt[fail_link[u]][c];
+
+                    int fail = fail_link[chi];
+                    if (match_idx[fail] != -1)
+                        dict_link[chi] = fail;
+                    else
+                        dict_link[chi] = dict_link[fail];
+                    q.push(chi);
+                } else
+                    nxt[u][c] = nxt[fail_link[u]][c];
+            }
+        }
     }
 
-    ll ans = 0;
-    for (int i = 0; i+1 < n; i++) {
-        ans += n-i-1-lcp[g[i]];
+    vector<vector<int>> search(const string& text, const vector<int>& lengths) {
+        vector<vector<int>> ret(lengths.size());
+        for (int cur = 0, i = 0; i < text.length(); ++i) {
+            cur = nxt[cur][text[i]];
+
+            for (int u = cur; u; u = dict_link[u]) {
+                int id = match_idx[u];
+                if (id != -1) {
+                    ret[id].push_back(i - lengths[id] + 1);
+                }
+            }
+        }
+        return ret;
     }
-    cout << ans;
+} /* init() insert() build() search() */
+
+void solve() {
+
 }

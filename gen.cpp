@@ -1,105 +1,78 @@
 #include "testlib.h"
+#include <set>
 #include <vector>
-#include <numeric>
 #include <algorithm>
 
 using namespace std;
 
-const int MAX_SUM_N = 300000;
-const long long MIN_VAL = -1'000'000'000LL;
-const long long MAX_VAL = 1'000'000'000LL;
+const int MAX_COORD = 1'000'000'000;
 
-// Generates a single testcase based on the specified edge-case type
 void generateTestCase(int n, int type) {
-    long long targetSum;
-    vector<long long> a(n + 1);
+    set<pair<int, int>> used;
+    vector<pair<int, int>> asteroids;
 
-    // 1. Generate Values and Target Sum
-    if (type == 3) {
-        // Edge Case: All nodes are 0, target is 0. Maximizes valid paths.
-        targetSum = 0;
-        for (int i = 1; i <= n; i++) a[i] = 0;
-    } else if (type == 4) {
-        // Edge Case: Target is reached exactly at the root
-        for (int i = 1; i <= n; i++) a[i] = rnd.next(MIN_VAL, MAX_VAL);
-        targetSum = a[1];
-    } else if (type == 5) {
-        // Edge Case: Small values to force paths to repeatedly cross the targetSum
-        targetSum = rnd.next(-5LL, 5LL);
-        for (int i = 1; i <= n; i++) a[i] = rnd.next(-2LL, 2LL);
-    } else {
-        // Standard Case: Purely random
-        targetSum = rnd.next(-10'000'000'000'000LL, 10'000'000'000'000LL);
-        for (int i = 1; i <= n; i++) a[i] = rnd.next(MIN_VAL, MAX_VAL);
-    }
-
-    println(n, targetSum);
-
-    // Print node values
-    for (int i = 1; i <= n; i++) {
-        cout << a[i] << (i == n ? "" : " ");
-    }
-    cout << "\n";
-
-    if (n == 1) return;
-
-    // 2. Generate Tree Topology
-    // We shuffle node labels (2 to n) to prevent predictable structures, keeping root at 1
-    vector<int> perm(n + 1);
-    perm[1] = 1;
-    for (int i = 2; i <= n; i++) perm[i] = i;
-    shuffle(perm.begin() + 2, perm.end());
-
-    vector<pair<int, int>> edges;
-    for (int i = 2; i <= n; i++) {
-        int parent_index;
-
-        if (type == 1) {
-            // Edge Case: Line Graph (Max depth, tests recursion limits)
-            parent_index = i - 1;
-        } else if (type == 2) {
-            // Edge Case: Star Graph (Max branching factor)
-            parent_index = 1;
-        } else {
-            // Standard Case: Random Tree
-            parent_index = rnd.next(1, i - 1);
+    auto get_unique_pt = [&](int min_x, int max_x, int min_y, int max_y) {
+        while (true) {
+            int x = rnd.next(min_x, max_x);
+            int y = rnd.next(min_y, max_y);
+            if (used.insert({x, y}).second) return make_pair(x, y);
         }
+    };
 
-        int u = perm[parent_index];
-        int v = perm[i];
+    // Generate the Ship first
+    pair<int, int> ship;
 
-        // Randomly swap u and v to prevent u always being closer to the root
-        if (rnd.next(2)) swap(u, v);
-        edges.push_back({u, v});
+    if (type == 0) {
+        // Pure Random
+        ship = get_unique_pt(1, MAX_COORD, 1, MAX_COORD);
+        for (int i = 0; i < n; ++i) {
+            asteroids.push_back(get_unique_pt(1, MAX_COORD, 1, MAX_COORD));
+        }
+    }
+    else if (type == 1) {
+        // All asteroids on different rows
+        ship = get_unique_pt(1, MAX_COORD / 2, 1, MAX_COORD);
+        for (int i = 0; i < n; ++i) {
+            int x = rnd.next(MAX_COORD / 2 + 1, MAX_COORD);
+            asteroids.push_back(get_unique_pt(x, x, 1, MAX_COORD));
+        }
+    }
+    else if (type == 2) {
+        // All asteroids on the same row, but BEHIND the ship
+        ship = get_unique_pt(1, MAX_COORD, 1, 100'000);
+        for (int i = 0; i < n; ++i) {
+            asteroids.push_back(get_unique_pt(ship.first, ship.first, 100'001, MAX_COORD));
+        }
+    }
+    else if (type == 3) {
+        // Maximum shielding: ALL asteroids are on the same row, IN FRONT of the ship
+        ship = get_unique_pt(1, MAX_COORD, MAX_COORD - 100'000, MAX_COORD);
+        for (int i = 0; i < n; ++i) {
+            asteroids.push_back(get_unique_pt(ship.first, ship.first, 1, ship.second - 1));
+        }
     }
 
-    // Shuffle the order the edges are printed
-    shuffle(edges.begin(), edges.end());
-
-    for (auto edge : edges) {
-        println(edge.first, edge.second);
+    println(n);
+    for (auto p : asteroids) {
+        println(p.first, p.second);
     }
+    println(ship.first, ship.second);
 }
 
 int main(int argc, char* argv[]) {
     registerGen(argc, argv, 1);
 
-    // Generator Flags
-    int t = opt<int>("t", rnd.next(1, 10)); // Number of test cases
-    int sum_n = opt<int>("sumn", MAX_SUM_N); // Total N across all test cases
-    int type = opt<int>("type", 0); // Edge case flag (0 by default)
+    int t = opt<int>("t", rnd.next(1, 2000));
+    int sumn = opt<int>("sumn", 2000);
+    int type = opt<int>("type", 0);
+    // Types: 0: Random, 1: No ast on ship row, 2: Ast behind ship, 3: Max shielding
 
     println(t);
+    vector<int> n_len = rnd.partition(t, sumn, 0); // Allows n=0
 
-    // Randomly partition 'sum_n' into 't' valid test cases (each n >= 1)
-    vector<int> ns(t, 1);
-    int remaining = sum_n - t;
-    for (int i = 0; i < remaining; i++) {
-        ns[rnd.next(t)]++;
-    }
-
-    for (int i = 0; i < t; i++) {
-        generateTestCase(ns[i], type);
+    for (int tt = 0; tt < t; tt++) {
+        setTestCase(tt + 1);
+        generateTestCase(n_len[tt], type);
     }
 
     return 0;
