@@ -753,18 +753,21 @@ struct hash61 {
     static u64 step;
     static vector<u64> pw;
     u64 addmod(u64 a, u64 b) const {
+        // return (a + b + md) % md;
         a += b;
         if (a >= md) a -= md;
         return a;
     }
 
     u64 submod(u64 a, u64 b) const {
+        // return addmod(a, -b);
         a += md - b;
         if (a >= md) a -= md;
         return a;
     }
 
     u64 mulmod(u64 a, u64 b) const {
+        return __int128_t(a) * b % md;
         u64 l1 = (uint32_t) a, h1 = a >> 32, l2 = (uint32_t) b, h2 = b >> 32;
         u64 l = l1 * l2, m = l1 * h2 + l2 * h1, h = h1 * h2;
         u64 ret = (l & md) + (l >> 61) + (h << 3) + (m >> 29) + (m << 35 >> 3) + 1;
@@ -1220,7 +1223,7 @@ for (ll i : left) {
 
 <!-- <div style="page-break-after: always;"></div> -->
 
-# Z-Algo
+# Z-Algo Z algo
 ```
 vector<int> z_algo(string s) {
     vector<int> z(s.size());
@@ -4062,11 +4065,7 @@ namespace corasick {
     const int N = ++++++;
     const int SIGMA = ++++++;
 
-    int nxt[N][SIGMA];
-    int fail_link[N];
-    int dict_link[N];
-    int match_idx[N];
-    int nodes;
+    int nxt[N][SIGMA], fail_link[N], dict_link[N], match_idx[N], nodes;
 
     void init() {
         nodes = fail_link[0] = dict_link[0] = 0;
@@ -4142,4 +4141,127 @@ namespace corasick {
         return ret;
     }
 } /* init() insert() build() search() */
+```
+```
+#include <bits/stdc++.h>
+using namespace std;
+
+template <int SIGMA>
+class AhoCorasick {
+public:
+    explicit AhoCorasick(size_t max_nodes = 1) {
+        init(max_nodes);
+    }
+
+    void init(size_t max_nodes = 1) {
+        if (max_nodes == 0) max_nodes = 1;
+
+        nodes = 1;
+        nxt.assign(max_nodes, {});
+        fail_link.assign(max_nodes, 0);
+        dict_link.assign(max_nodes, 0);
+        match_idx.assign(max_nodes, -1);
+
+        nxt[0].fill(0);
+        fail_link[0] = dict_link[0] = 0;
+        match_idx[0] = -1;
+    }
+
+    int insert(const string& pattern, int id) {
+        int cur = 0;
+        for (unsigned char ch : pattern) {
+            int c = ch;
+            assert(0 <= c && c < SIGMA);
+            if (!nxt[cur][c]) {
+                nxt[cur][c] = create_node();
+            }
+            cur = nxt[cur][c];
+        }
+        if (match_idx[cur] != -1) return match_idx[cur];
+        return match_idx[cur] = id;
+    }
+
+    void build() {
+        queue<int> q;
+
+        for (int c = 0; c < SIGMA; ++c) {
+            int chi = nxt[0][c];
+            if (chi) {
+                fail_link[chi] = dict_link[chi] = 0;
+                q.push(chi);
+            }
+        }
+
+        while (!q.empty()) {
+            int u = q.front();
+            q.pop();
+
+            for (int c = 0; c < SIGMA; ++c) {
+                int chi = nxt[u][c];
+
+                if (chi) {
+                    fail_link[chi] = nxt[fail_link[u]][c];
+
+                    int fail = fail_link[chi];
+                    if (match_idx[fail] != -1)
+                        dict_link[chi] = fail;
+                    else
+                        dict_link[chi] = dict_link[fail];
+
+                    q.push(chi);
+                } else {
+                    nxt[u][c] = nxt[fail_link[u]][c];
+                }
+            }
+        }
+    }
+
+    vector<vector<int>> search(const string& text, const vector<int>& lengths) const {
+        vector<vector<int>> ret(lengths.size());
+
+        for (int cur = 0, i = 0; i < (int)text.size(); ++i) {
+            unsigned char ch = static_cast<unsigned char>(text[i]);
+            int c = ch;
+            assert(0 <= c && c < SIGMA);
+
+            cur = nxt[cur][c];
+
+            for (int u = cur; u; u = dict_link[u]) {
+                int id = match_idx[u];
+                if (id != -1) {
+                    ret[id].push_back(i - lengths[id] + 1);
+                }
+            }
+        }
+
+        return ret;
+    }
+
+private:
+    int nodes = 0;
+    vector<array<int, SIGMA>> nxt;
+    vector<int> fail_link, dict_link, match_idx;
+
+    void ensure_capacity() {
+        if (nodes < (int)nxt.size()) return;
+
+        size_t old = nxt.size();
+        size_t new_cap = max<size_t>(1, old * 2);
+
+        nxt.resize(new_cap);
+        for (size_t i = old; i < new_cap; ++i) nxt[i].fill(0);
+
+        fail_link.resize(new_cap, 0);
+        dict_link.resize(new_cap, 0);
+        match_idx.resize(new_cap, -1);
+    }
+
+    int create_node() {
+        ensure_capacity();
+        nxt[nodes].fill(0);
+        fail_link[nodes] = dict_link[nodes] = 0;
+        match_idx[nodes] = -1;
+        return nodes++;
+    }
+};
 ```
