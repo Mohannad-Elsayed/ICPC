@@ -4265,3 +4265,205 @@ private:
     }
 };
 ```
+
+<!-- <div style="page-break-after: always;"></div> -->
+
+# Aho Corasick Algorithm aca
+```
+namespace sam {
+    const int N = 4000200, SIGMA = 26; // N two times the max length
+    int sa[N][SIGMA], len[N], fail[N], terminal[N], nodes, lst, C[N];
+
+    void init() {
+        nodes = lst = 0;
+        memset(sa[0], -1, sizeof sa[0]);
+        fail[0] = -1;
+        len[0] = terminal[0] = 0;
+    }
+
+    int create_node() {
+        nodes++;
+        memset(sa[nodes], -1, sizeof sa[nodes]);
+        terminal[nodes] = 0;
+        return nodes;
+    }
+
+    void insert(char ch) {
+        int u = create_node();
+        len[u] = len[lst] + 1;
+        int p, q;
+        for (p = lst; ~p; p = fail[p]) {
+            q = sa[p][ch];
+            if (~sa[p][ch]) break;
+            sa[p][ch] = u;
+        }
+
+        if (p == -1) {
+            fail[u] = 0;
+        } else if (len[p] + 1 == len[q]) {
+            fail[u] = q;
+        } else {
+            int x = create_node();
+            len[x] = len[p] + 1;
+            memcpy(sa[x], sa[q], sizeof sa[0]);
+            for (int v = p; ~v && sa[v][ch] == q; v = fail[v])
+                sa[v][ch] = x;
+            fail[x] = fail[q];
+            fail[q] = fail[u] = x;
+        }
+        lst = u;
+        C[u] = 1;
+    }
+
+    void insert(const string &s) {
+        for (auto ch: s)
+            insert(ch);
+    }
+
+    string walk(const string &s) {
+        int cur = 0;
+        for (auto ch: s) {
+            if (sa[cur][ch] == -1) return "NO"s;
+            cur = sa[cur][ch];
+        }
+        return "YES";
+    }
+
+    void pre_count() {
+        vector<vector<int> > vlen(N);
+        for (int i = 0; i < N; i++) vlen[len[i]].push_back(i);
+        for (int l = N - 1; ~l; l--)
+            for (auto x: vlen[l])
+                C[fail[x]] += C[x];
+    }
+
+    int count(const string &s) {
+        int cur = 0;
+        for (auto ch: s) {
+            if (!~sa[cur][ch]) return 0;
+            cur = sa[cur][ch];
+        }
+        return C[cur];
+    }
+
+    vector<ll> count_distinct() {
+        vector<ll> dp(nodes + 1), outdeg(nodes + 1);
+        vector<vector<int> > indeg(nodes + 1);
+        for (int i = 0; i <= nodes; i++)
+            for (int j = 0; j < SIGMA; j++)
+                if (~sa[i][j]) {
+                    outdeg[i]++;
+                    indeg[sa[i][j]].push_back(i);
+                }
+        queue<int> q;
+        for (int i = 0; i <= nodes; i++)
+            if (!outdeg[i])
+                q.push(i);
+        while (!q.empty()) {
+            int top = q.front();
+            q.pop();
+            dp[top] = 1;
+            for (int i = 0; i < SIGMA; i++)
+                if (~sa[top][i])
+                    dp[top] += dp[sa[top][i]];
+            for (auto x: indeg[top]) {
+                outdeg[x]--;
+                if (!outdeg[x]) q.push(x);
+            }
+        }
+
+        return dp;
+    }
+
+    ll count_distinct2() {
+        ll ret = 0;
+        for (int i = 1; i <= nodes; i++)
+            ret += len[i] - len[fail[i]];
+        return ret;
+    }
+
+    ll sum_distinct() {
+        vector<ll> d(nodes + 1), ans(nodes + 1), outdeg(nodes + 1);
+        vector<vector<int> > indeg(nodes + 1);
+        queue<int> q;
+        for (int i = 0; i <= nodes; i++) {
+            for (int j = 0; j < SIGMA; j++)
+                if (~sa[i][j]) {
+                    outdeg[i]++;
+                    indeg[sa[i][j]].push_back(i);
+                }
+            if (!outdeg[i]) q.push(i);
+        }
+        while (!q.empty()) {
+            int top = q.front();
+            q.pop();
+
+            d[top] = 1;
+            for (int i = 0; i < SIGMA; i++)
+                if (~sa[top][i]) {
+                    d[top] += d[sa[top][i]];
+                    ans[top] += d[sa[top][i]] + ans[sa[top][i]];
+                }
+
+            for (int x: indeg[top])
+                if (!--outdeg[x])
+                    q.push(x);
+        }
+        return ans.front();
+    }
+
+    ll sum_distinct2() {
+        ll ret = 0;
+        for (int i = 1; i <= nodes; i++) {
+            int a = len[i], b = len[fail[i]] + 1;
+            ll num = a-b+1;
+            ret += num * (a+b)/2;
+        }
+        return ret;
+    }
+
+    string get_kth(ll k) {
+        auto d = count_distinct();
+        string ret;
+        int cur = 0;
+        while (k) {
+            for (int i = 0; i < SIGMA; i++) if (~sa[cur][i]) {
+                if (d[sa[cur][i]] >= k) {
+                    k--;
+                    ret.push_back(i);
+                    cur = sa[cur][i];
+                    break;
+                }
+                k -= d[sa[cur][i]];
+            }
+        }
+        return ret;
+    }
+
+    string smallest_shift(int n) {
+        int cur = 0;
+        string ret;
+        while (n--) {
+            for (int i = 0; i < SIGMA; i++) if (~sa[cur][i]) {
+                cur = sa[cur][i];
+                ret.push_back(i);
+                break;
+            }
+        }
+        return ret;
+    }
+
+    vector<int> vis(N);
+    void dfs(int cur, const vector<ll>& d) {
+        if (vis[cur]) return;
+        for (int i = 0; i < SIGMA; i++) if (~sa[cur][i]) {
+            cout << cur << "," << d[cur]-1 << ' ' << sa[cur][i] << "," << d[sa[cur][i]]-1 << ' ' << char(i+'a') << '\n';
+            dfs(sa[cur][i], d);
+        }
+    }
+    void prnt() {
+        auto d = count_distinct();
+        dfs(0, d);
+    }
+} /* init() insert() */
+```

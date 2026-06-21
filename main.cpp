@@ -5,23 +5,38 @@ using namespace std;
 #define print(...) ((void)0)
 #endif
 using ll = long long;
+
 void solve();
+
 signed main() {
 #ifdef mhnd01s
-    int x = mt19937(random_device()())()%100;printf("%d\n", x);
+    int x = mt19937(random_device()())() % 100;
+    printf("%d\n", x);
     freopen("out", "wt", stdout);
 #else
     cin.tie(0)->sync_with_stdio(0);
 #endif
     cin.exceptions(cin.failbit);
     int t = 1;
-    cin >> t;
-    while(t--) {
+    // cin >> t;
+    while (t--) {
         solve();
-        if(t) cout << '\n';
-    }return 0;
+        if (t) cout << '\n';
+    }
+    return 0;
 }
 
-void solve() {
 
+
+void solve() {
+    sam::init();
+    string s;
+    cin >> s;
+    s += s;
+    for (auto &ch: s) ch -= 'a';
+    sam::insert(s);
+    // sam::prnt(); cout << '\n';
+    auto ans = sam::smallest_shift(s.size()/2);
+    for (auto &ch : ans) ch += 'a';
+    cout << ans;
 }
