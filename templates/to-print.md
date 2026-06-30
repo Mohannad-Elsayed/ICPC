@@ -4467,3 +4467,115 @@ namespace sam {
     }
 } /* init() insert() */
 ```
+
+<!-- <div style="page-break-after: always;"></div> -->
+
+# sack, dsu on tree
+```
+void pre(int u) {
+    sz[u] = 1;
+    for (int &v : adj[u]) {
+        adj[v].erase(find(adj[v].begin(), adj[v].end(), u));
+        pre(v);
+        sz[u] += sz[v];
+        if (sz[v] > sz[adj[u].front()]) swap(v, adj[u].front());
+    }
+}
+
+void addver(int u) {
+    ffrq[++frq[A[u]]]++;
+}
+void addsub(int u) {
+    addver(u);
+    for (int v : adj[u]) addsub(v);
+}
+
+void removever(int u) {
+    ffrq[frq[A[u]]--]--;
+}
+void removesub(int u) {
+    removever(u);
+    for (int v : adj[u]) removesub(v);
+}
+
+void dfs(int u) {
+    for (int v : adj[u]) if (v != adj[u].front()) {
+        dfs(v);
+        removesub(v);
+    }
+    if (!adj[u].empty())
+        dfs(adj[u].front());
+    addver(u);
+    for (int v : adj[u])
+        if (v != adj[u].front())
+        addsub(v);
+    for (auto [k, idx] : queries[u]) ans[idx] = ffrq[k];
+}
+```
+
+<!-- <div style="page-break-after: always;"></div> -->
+
+# matrix exponentiation / matrix power
+```
+template <typename T>
+struct Matrix {
+    int n, m;
+    vector<T> mat;
+
+    Matrix(int n, int m) : n(n), m(m) {
+        mat.assign(n * m, 0);
+    }
+    Matrix(int n) : n(n), m(n) {
+        mat.assign(n * n, 0);
+    }
+
+    void make_unit() {
+        assert(n == m);
+        fill(mat.begin(), mat.end(), 0);
+        for (int i = 0; i < n; i++) {
+            mat[i * m + i] = 1;
+        }
+    }
+
+    T* operator[](int r) { return &mat[r * m]; }
+    const T* operator[](int r) const { return &mat[r * m]; }
+
+    Matrix operator*(const Matrix& o) const {
+        assert(m == o.n);
+        Matrix res(n, o.m);
+
+        for (int i = 0; i < n; i++) {
+            for (int k = 0; k < m; k++) {
+                T val = mat[i * m + k];
+                if (val == 0) continue;
+
+                for (int j = 0; j < o.m; j++) {
+                    res[i][j] = res[i][j] + val * o[k][j];
+                }
+            }
+        }
+        return res;
+    }
+
+    Matrix operator+(const Matrix& o) const {
+        assert(o.n == n && o.m == m);
+        Matrix ret(n, m);
+        for (int i = 0; i < n; i++)
+            for (int j = 0; j < m; j++)
+                ret[i][j] = (*this)[i][j] + o[i][j];
+        return ret;
+    }
+
+    Matrix pow(long long k) const {
+        assert(n == m);
+        Matrix res(n), base = *this;
+        res.make_unit();
+        while (k > 0) {
+            if (k & 1) res = res * base;
+            base = base * base;
+            k >>= 1;
+        }
+        return res;
+    }
+};
+```
