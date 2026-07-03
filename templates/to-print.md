@@ -2478,6 +2478,7 @@ ll BSGS(ll a, ll b, ll p) { // a^x = b (mod p)
     return -1;
 }
 
+// fast power
 int fp(int b, int p) {
     int res = 1;
     while(p) {
@@ -3095,7 +3096,7 @@ void countPaths(int n, vector<vector<int>>& adj) {
 }
 
 bool isNegativeCycle(int n, const vector<vector<int>>& adj) {
-	// run warshal first
+	// run floyd first
 	for (int i = 0; i < n; ++i)
 		if (adj[i][i] < 0)
 			return true;
@@ -3103,7 +3104,7 @@ bool isNegativeCycle(int n, const vector<vector<int>>& adj) {
 }
 
 bool anyEffectiveCycle(int n, const vector<vector<int>>& adj, int src, int dest, int OO) {
-	// run warshal first
+	// run floyd first
 	for (int i = 0; i < n; ++i)
 		if (adj[i][i] < 0 && adj[src][i] < OO && adj[i][dest] < OO)
 			return true;
@@ -3113,7 +3114,7 @@ bool anyEffectiveCycle(int n, const vector<vector<int>>& adj, int src, int dest,
 
 <!-- <div style="page-break-after: always;"></div> -->
 
-# Direction arrays
+# Direction arrays dir arr
 ```
 int dx[8] = { 2, 1, -1, -2, -2, -1, 1, 2 };
 int dy[8] = { 1, 2, 2, 1, -1, -2, -2, -1 }; // knight
@@ -4529,7 +4530,7 @@ struct Matrix {
         mat.assign(n * n, 0);
     }
 
-    void make_unit() {
+    void identity() {
         assert(n == m);
         fill(mat.begin(), mat.end(), 0);
         for (int i = 0; i < n; i++) {
@@ -4546,11 +4547,10 @@ struct Matrix {
 
         for (int i = 0; i < n; i++) {
             for (int k = 0; k < m; k++) {
-                T val = mat[i * m + k];
-                if (val == 0) continue;
-
+                T val = mat[i * m + k]; if (val == 0) continue;
                 for (int j = 0; j < o.m; j++) {
-                    res[i][j] = res[i][j] + val * o[k][j];
+                    res[i][j] = (res[i][j] + 1ll * val * o[k][j]) % mod;
+                    // res[i][j] = res[i][j] + val * o[k][j];
                 }
             }
         }
@@ -4561,16 +4561,18 @@ struct Matrix {
         assert(o.n == n && o.m == m);
         Matrix ret(n, m);
         for (int i = 0; i < n; i++)
-            for (int j = 0; j < m; j++)
-                ret[i][j] = (*this)[i][j] + o[i][j];
+            for (int j = 0; j < m; j++) {
+                ret[i][j] = ((*this)[i][j] + o[i][j]) % mod;
+                // ret[i][j] = (*this)[i][j] + o[i][j];
+            }
         return ret;
     }
 
-    Matrix pow(long long k) const {
+    Matrix pow(ll k) const {
         assert(n == m);
         Matrix res(n), base = *this;
-        res.make_unit();
-        while (k > 0) {
+        res.identity();
+        while (k) {
             if (k & 1) res = res * base;
             base = base * base;
             k >>= 1;

@@ -15,76 +15,63 @@ signed main() {
 #endif
     cin.exceptions(cin.failbit);
     int t = 1;
-    // cin >> t;
+    cin >> t;
     while(t--) {
         solve();
         if(t) cout << '\n';
     }return 0;
 }
 
-
-template <typename T>
-struct Matrix {
-    int n, m;
-    vector<T> mat;
-
-    Matrix(int n, int m) : n(n), m(m) {
-        mat.assign(n * m, 0);
+struct DSU {
+    vector<int> p, sz;
+    int n, comps;
+    DSU(int _n = 0) { init(_n); }
+    void init(int _n) {
+        n = _n + 10; comps = _n;
+        p.resize(n); sz.assign(n, 1);
+        iota(p.begin(), p.end(), 0);
     }
-    Matrix(int n) : n(n), m(n) {
-        mat.assign(n * n, 0);
+    int find(int u) { return u == p[u] ? u : p[u] = find(p[u]); }
+    bool unite(int u, int v) {
+        u = find(u), v = find(v);
+        if (u == v) return 0;
+        if (sz[u] < sz[v]) swap(u, v);
+        p[v] = u; sz[u] += sz[v]; comps--;
+        return 1;
     }
-
-    void make_unit() {
-        assert(n == m);
-        fill(mat.begin(), mat.end(), 0);
-        for (int i = 0; i < n; i++) {
-            mat[i * m + i] = 1;
-        }
-    }
-
-    T* operator[](int r) { return &mat[r * m]; }
-    const T* operator[](int r) const { return &mat[r * m]; }
-
-    Matrix operator*(const Matrix& o) const {
-        assert(m == o.n);
-        Matrix res(n, o.m);
-
-        for (int i = 0; i < n; i++) {
-            for (int k = 0; k < m; k++) {
-                T val = mat[i * m + k];
-                if (val == 0) continue;
-
-                for (int j = 0; j < o.m; j++) {
-                    res[i][j] = res[i][j] + val * o[k][j];
-                }
-            }
-        }
-        return res;
-    }
-
-    Matrix operator+(const Matrix& o) const {
-        assert(o.n == n && o.m == m);
-        Matrix ret(n, m);
-        for (int i = 0; i < n; i++)
-            for (int j = 0; j < m; j++)
-                ret[i][j] = (*this)[i][j] + o[i][j];
-        return ret;
-    }
-
-    Matrix pow(long long k) const {
-        assert(n == m);
-        Matrix res(n), base = *this;
-        res.make_unit();
-        while (k > 0) {
-            if (k & 1) res = res * base;
-            base = base * base;
-            k >>= 1;
-        }
-        return res;
-    }
+    bool same(int u, int v) { return find(u) == find(v); }
+    int size(int u) { return sz[find(u)]; }
+    int size() { return comps; }
 };
 
 void solve() {
+    int n, m; cin >> n >> m;
+    vector<int> v(n), frq(m+1);
+    for (auto &i : v) cin >> i, frq[i]++;
+    vector<vector<int>> idx(m+1);
+    for (auto x : v) idx[x].reserve(frq[x]+2);
+    vector<array<int, 3>> edges;
+    for (int i = 0; i < n; i++) idx[v[i]].push_back(i);
 
+    for (int i = m; i; i--) {
+        if (idx[i].empty()) continue;
+        for (int j = 1; j < idx[i].size(); j++)
+            edges.push_back({-i, idx[i][0], idx[i][j]});
+        for (int d = i << 1; d <= m; d+=i)
+            for (int j = 0; j < idx[d].size(); j++)
+                edges.push_back({-i, idx[i][0], idx[d][j]});
+    }
+
+    sort(edges.begin(), edges.end());
+    print(edges);
+
+    ll ans = 0, cnt = 0;
+    DSU d(n);
+    for (auto [w, x, y] : edges) {
+        if (d.unite(x, y)) {
+            cnt++;
+            ans += d.unite(x, y) * w;
+        }
+    }
+    cout << -ans + n - 1 - cnt;
 }
