@@ -4581,3 +4581,43 @@ struct Matrix {
     }
 };
 ```
+
+<!-- <div style="page-break-after: always;"></div> -->
+
+# SCC / strongly connected componenets
+```
+vector<int> tin(n, -1), low(n), vis(n), stk, mn, idscc(n, -1);
+function<void(int)> tarj = [&](int u) {
+    tin[u] = low[u] = timer++;
+    vis[u] = 1;
+    stk.push_back(u);
+    for (int v_ : g[u]) {
+        if (tin[v_] == -1) {
+            tarj(v_);
+            low[u] = min(low[u], low[v_]);
+        } else if (vis[v_])
+            low[u] = min(low[u], tin[v_]);
+    }
+
+    if (low[u] == tin[u]) {
+        int t;
+        mn.push_back(1e5);
+        do {
+            t = stk.back();
+            stk.pop_back();
+            vis[t] = 0;
+            mn.back() = min(mn.back(), v[t]);
+            idscc[t] = (int)mn.size() - 1;
+        } while (t ^ u);
+    }
+};
+for (int i = 0; i < n; i++)
+    if (tin[i] == -1)
+        tarj(i);
+
+vector<vector<int>> cond(mn.size());
+for (int i = 0; i < n; i++)
+    for (int u : g[i])
+        if (idscc[i] ^ idscc[u])
+            cond[idscc[i]].push_back(idscc[u]);
+```
