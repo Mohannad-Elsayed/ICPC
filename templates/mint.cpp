@@ -14,9 +14,14 @@ template <int M> struct ModInt {
     bool operator==(ModInt o) const { return v == o.v; };
     bool operator!=(ModInt o) const { return !(*this == o); };
 
+    // ModInt add(ModInt a, ModInt b) { return ((a.v + b.v % M)+M)%M;}
+    // ModInt sub(ModInt a, ModInt b) { return add(a, -b); }
+    // ModInt mul(ModInt a, ModInt b) { return 1ll * a.v * b.v % M; }
+    // ModInt div(ModInt a, ModInt b) { return mul(a, binpow(b, M-2)); }
+
     ModInt &operator+=(ModInt o) { v = (v + o.v) % M; return *this; }
     ModInt &operator-=(ModInt o) { v = (v - o.v + M) % M; return *this; }
-    ModInt &operator*=(ModInt o) { v = (1ll * v * o.v) % M; return *this; }
+    ModInt &operator*=(ModInt o) { v = 1ll * v * o.v % M; return *this; }
     ModInt &operator/=(ModInt o) { return (*this *= binpow(o, M - 2)); }
 
     friend ModInt operator+(ModInt a, ModInt b) { return a += b; }

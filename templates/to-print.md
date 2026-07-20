@@ -580,7 +580,6 @@ struct Mono_queue{
             return pop_st.max();
         return std::max(push_st.max(),pop_st.max());
     }
-
 };
 ```
 
@@ -608,37 +607,6 @@ struct DSU {
     bool same(int u, int v) { return find(u) == find(v); }
     int size(int u) { return sz[find(u)]; }
     int size() { return comps; }
-};
-```
-
-<!-- <div style="page-break-after: always;"></div> -->
-
-# DSU, unionfind, Rollback
-```
-class DSU {
-  private:
-	vector<int> p, sz;
-	vector<pair<int &, int>> history;
-  public:
-	DSU(int n) : p(n), sz(n+10, 1) { iota(p.begin(), p.end(), 0); }
-	int get(int x) { return x == p[x] ? x : get(p[x]); }
-	void unite(int a, int b) {
-		a = get(a);
-		b = get(b);
-		if (a == b) { return; }
-		if (sz[a] < sz[b]) { swap(a, b); }
-		history.push_back({sz[a], sz[a]});
-		history.push_back({p[b], p[b]});
-		p[b] = a;
-		sz[a] += sz[b];
-	}
-	int snapshot() { return history.size(); }
-	void rollback(int until = 1) {
-		while (snapshot() > until) {
-			history.back().first = history.back().second;
-			history.pop_back();
-		}
-	}
 };
 ```
 
@@ -1223,20 +1191,14 @@ for (ll i : left) {
 
 <!-- <div style="page-break-after: always;"></div> -->
 
-# Z-Algo Z algo
+# Z-Algo Z algo zalgo
 ```
 vector<int> z_algo(string s) {
     vector<int> z(s.size());
     for(int i = 1, l = 0, r = 0; i < s.size(); i++) {
-        if(i < r) {
-            z[i] = min(r - i, z[i - l]);
-        }
-        while(i + z[i] < s.size() && s[z[i]] == s[z[i] + i])
-            z[i]++;
-        if(i + z[i] > r) {
-            r = i + z[i];
-            l = i;
-        }
+        if(i < r) z[i] = min(r - i, z[i - l]);
+        while(i + z[i] < s.size() && s[z[i]] == s[z[i] + i]) z[i]++;
+        if(i + z[i] > r) r = i + z[i], l = i;
     }
     return z;
 }
@@ -1806,19 +1768,19 @@ out[u] = timer;
 
 # Topological Sort
 ```
-	queue<int> queue;
-	for (int i = 0; i < n; i++) 
-		if (in_degree[i] == 0) { queue.push(i); }
-	
-	vector<int> top_sort;
-	while (!queue.empty()) {
-		int curr = queue.front();
-		queue.pop();
-		top_sort.push_back(curr);
-		for (int next : graph[curr]) {
-			if (--in_degree[next] == 0) { queue.push(next); }
-		}
-	}
+queue<int> queue;
+for (int i = 0; i < n; i++) 
+    if (in_degree[i] == 0) { queue.push(i); }
+
+vector<int> top_sort;
+while (!queue.empty()) {
+    int curr = queue.front();
+    queue.pop();
+    top_sort.push_back(curr);
+    for (int next : graph[curr]) {
+        if (--in_degree[next] == 0) { queue.push(next); }
+    }
+}
 ```
 
 <!-- <div style="page-break-after: always;"></div> -->
@@ -2015,103 +1977,86 @@ for (int i = 0; i < n; i++)
 
 # Combinatorics
 ```
+template <int M> struct ModInt {
+    template <class T> T binpow(T a, ll b) {
+        T res = 1;
+        while (b) { if (b & 1) res *= a; a *= a, b >>= 1; }
+        return res;
+    }
+    int v;
+    ModInt() : v(0) {}
+    ModInt(ll v_) {
+        v = v_ % M;
+        if (v < 0) v += M;
+    }
+
+    bool operator==(ModInt o) const { return v == o.v; };
+    bool operator!=(ModInt o) const { return !(*this == o); };
+
+    // ModInt add(ModInt a, ModInt b) { return ((a.v + b.v % M)+M)%M;}
+    // ModInt sub(ModInt a, ModInt b) { return add(a, -b); }
+    // ModInt mul(ModInt a, ModInt b) { return 1ll * a.v * b.v % M; }
+    // ModInt div(ModInt a, ModInt b) { return mul(a, binpow(b, M-2)); }
+
+    ModInt &operator+=(ModInt o) { v = (v + o.v) % M; return *this; }
+    ModInt &operator-=(ModInt o) { v = (v - o.v + M) % M; return *this; }
+    ModInt &operator*=(ModInt o) { v = 1ll * v * o.v % M; return *this; }
+    ModInt &operator/=(ModInt o) { return (*this *= binpow(o, M - 2)); }
+
+    friend ModInt operator+(ModInt a, ModInt b) { return a += b; }
+    friend ModInt operator-(ModInt a, ModInt b) { return a -= b; }
+    friend ModInt operator*(ModInt a, ModInt b) { return a *= b; }
+    friend ModInt operator/(ModInt a, ModInt b) { return a /= b; }
+    ModInt operator-() { return 0 - *this; }
+
+    friend istream &operator>>(istream &is, ModInt &a) {
+        ll x; is >> x;
+        a = ModInt(x);
+        return is;
+    }
+    friend ostream &operator<<(ostream &os, ModInt a) { return os << a.v; }
+    friend string to_string(ModInt a) { return to_string(a.v); }
+};
+using mint = ModInt<>;
+
 namespace combinatorics {
-    const int mod =;
-    int inv(int a) {
-        int x = 1, x1 = 0, q, t, b = mod;
-        while(b) q = a / b, a -= q * b, t = a, a = b, b = t, x -= q * x1, t = x, x = x1, x1 = t;
-        assert(a == 1);
-        return (x + mod) % mod;
+    vector<mint> fac_(1, 1), inv_(1, 1);
+    void build(int N) {
+        N += 10;
+        fac_.assign(N, 1);
+        inv_.assign(N, 1);
+        for (int i = 2; i < N; i++)
+            fac_[i] = fac_[i-1] * i;
+        inv_[N-1] = 1/fac_[N-1];
+        for (int i = N-2; i > 1; i--)
+            inv_[i] = inv_[i+1] * (i+1);
     }
-    struct Z {
-        int v{};
-        Z(int x) : v(x) { }
-        Z(int64_t x) : v(int(x % mod)) { if(v < 0) v += mod; }
-        Z() = default;
-        explicit operator int() const { return v; }
-    };
-    Z operator+(Z const &l, Z const &r) { return {l.v + r.v >= mod? l.v + r.v - mod: l.v + r.v}; }
-    Z operator-(Z const &l, Z const &r) { return {l.v < r.v? l.v + mod - r.v: l.v - r.v}; }
-    Z operator*(Z const &l, Z const &r) { return {int(l.v * 1LL * r.v % mod)}; }
-    Z operator/(Z const &l, Z const &r) { return {int(l.v * 1LL * inv(r.v) % mod)}; }
-    Z operator-(Z const &n) { return {n.v? mod - n.v: 0}; }
-    bool operator==(Z const &l, Z const &r) { return l.v == r.v; }
-    bool operator!=(Z const &l, Z const &r) { return l.v != r.v; }
-    bool operator<(Z const &l, Z const &r) { return l.v < r.v; }
-    ostream& operator << (ostream& out, Z const &n) { return out << n.v; }
-    istream& operator >> (istream& in, Z &n) {
-        int64_t x; in >> x;  n = {x}; return in;
-    }
-    Z operator""_M(const unsigned long long x) { return {int64_t(x)}; }
- 
-    Z fix(int64_t x) {
-        int v = int(x < mod * 2 && x >= -mod? x: x % mod);
-        return v < 0? v + mod: v >= mod? v - mod: v;
-    }
- 
-    int MXS_ = 1;
-    vector fac_(1, 1_M), inv_(1, 1_M);
- 
-    void up_(int nw) {
-        nw = max(MXS_ << 1, 2 << __lg(nw));
-        fac_.resize(nw), inv_.resize(nw);
-        for(int i = MXS_; i < fac_.size(); i++)
-            fac_[i] = fac_[i - 1] * i;
- 
-        inv_.back() = 1 / fac_.back();
-        for(int i = int(inv_.size()) - 2; i >= MXS_; i--)
-            inv_[i] = inv_[i + 1] * (i + 1);
-        MXS_ = nw;
-    }
-    Z fp(Z b, int64_t p) {
-        Z ans = 1;
-        while(p) {
-            if(p & 1) ans = ans * b;
-            b = b * b, p >>= 1;
-        }
-        return ans;
-    }
- 
-    inline Z fac(int n) {
-        if(n < 0) return 0;
-        if(n >= MXS_) up_(n);
-        return fac_[n];
-    }
-    inline Z invFac(int n) {
-        if(n < 0) return 0;
-        if(n >= MXS_) up_(n);
-        return inv_[n];
-    }
- 
-    inline Z nCr(int n, int r) {
-        if(r < 0 || r > n) return 0;
-        if(n >= MXS_) up_(n);
+    inline mint nCr(int n, int r) {
+        if(n < 0 || r < 0 || r > n) return 0;
         return fac_[n] * inv_[r] * inv_[n - r];
     }
-    // For large N. In O(min(r, n - r))
-    inline Z nCr(int64_t n, int64_t r) {
-        if(r < 0 || r > n) return 0;
+
+    inline mint nCr(int64_t n, int64_t r) {
+        if(n < 0 || r < 0 || r > n) return 0;
         r = min<int64_t>(r, n - r);
-        if(r >= MXS_) up_(int(r));
-        Z ans = inv_[r];
+        mint ans = inv_[r];
         for(int64_t i = n - r + 1; i <= n; i++) ans = ans * i;
         return ans;
     }
-    inline Z nPr(int n, int r) {
-        if(r < 0 || r > n) return 0;
-        if(n >= MXS_) up_(n);
+    inline mint nPr(int n, int r) {
+        if(n < 0 || r < 0 || r > n) return 0;
         return fac_[n] * inv_[n - r];
     }
-    inline Z stars_and_bars(int n, int r){
+    inline mint stars_and_bars(int n, int r){
         return nCr(n + r - 1, r - 1);
     }
-    inline Z catalan(int n) {
+    inline mint catalan(int n) {
         if(n < 0) return 0;
-        if(n * 2 >= MXS_) up_(n * 2);
         return fac_[2 * n] * inv_[n] * inv_[n + 1];
     }
 }
 // using namespace combinatorics;
+auto pre = []() { combinatorics::build(); return 0; }();
 ```
 
 <!-- <div style="page-break-after: always;"></div> -->
@@ -2349,7 +2294,7 @@ x = -b (+-)sqrt(b^2-4*a*c) / (2 * a)
  prime^power * prime2^power2 * ...
 
  ((prime^(power + 1) - 1) / (prime - 1)) * ((prime2^(power2 + 1) - 1) / (prime2 - 1)) * ...
- ===============================================================
+==================================================
  a % m == b
  a and m not coprime
  g = gcd(a, m)
@@ -2423,9 +2368,6 @@ ll arithm2(ll a, ll d, ll n) { // starting a, diff d, 'n' terms
 }
  */
 
-using ll = int64_t;
-const int mod = 1'000'000'007, N = 1e5 + 1;
-
 ll phi(ll x) { // sqrt(x)
     ll ans = x;
     for(ll i = 2; i * i <= x; i++) {
@@ -2478,16 +2420,6 @@ ll BSGS(ll a, ll b, ll p) { // a^x = b (mod p)
     return -1;
 }
 
-// fast power
-int fp(int b, int p) {
-    int res = 1;
-    while(p) {
-        if(p & 1) res = int(res * 1LL * b % mod);
-        b = int(b * 1LL * b % mod), p >>= 1;
-    }
-    return res;
-}
-
 int sumNPowerM(int n, int m) { // 1^m + 2^m ... n^m
     int k = m + 3;
     vector<int> res(k);
@@ -2507,13 +2439,6 @@ int sumNPowerM(int n, int m) { // 1^m + 2^m ... n^m
     }
     int ans = 0;
     for(int i = 1; i < k; i++) {
-//        int cur = res[i];
-//        for(int j = 1; j < k; j++) {
-//            if(i == j) continue;
-//            cur = int(cur * 1LL * (n - j) % mod);
-//            cur = int(cur * 1LL * fp(abs(i - j), mod - 2) % mod);
-//        }
-//        if((k - i + 1) & 1) cur = (mod - cur) % mod;
         int cur = int(res[i] * 1LL * p[i - 1] % mod * s[i + 1] % mod * inv[i - 1] % mod * inv[k - i - 1] % mod);
         if((k - i + 1) & 1) cur = (mod - cur) % mod;
         ans = (ans + cur) % mod;
@@ -3156,45 +3081,6 @@ template <typename T, typename R> using ordered_map = tree<T, R, cmp, rb_tree_ta
 
 <!-- <div style="page-break-after: always;"></div> -->
 
-# Custom hash, pair hash
-```
-struct hash_pair {
-    template <class T1, class T2>
-    size_t operator()(const pair<T1, T2>& p) const {
-        static const size_t RANDOM_SEED = rng();
-        
-        size_t h1 = std::hash<T1>{}(p.first);
-        size_t h2 = std::hash<T2>{}(p.second);
-        
-        const size_t FNV_PRIME = 1099511628211ULL;
-        size_t hash = RANDOM_SEED;
-        hash = (hash ^ h1) * FNV_PRIME;
-        hash = (hash ^ h2) * FNV_PRIME;
-        
-        return hash;
-    }
-};
-
-struct hash_pair {
-    template <class T1, class T2>
-    size_t operator()(const pair<T1, T2>& p) const {
-        static const size_t RANDOM_SEED = rng();
-        
-        size_t h1 = std::hash<T1>{}(p.first);
-        size_t h2 = std::hash<T2>{}(p.second);
-        
-        const size_t FNV_PRIME = 1099511628211ULL;
-        size_t hash = RANDOM_SEED;
-        hash = (hash ^ h1) * FNV_PRIME;
-        hash = (hash ^ h2) * FNV_PRIME;
-        
-        return hash;
-    }
-};
-```
-
-<!-- <div style="page-break-after: always;"></div> -->
-
 # K-th permutation, permutation index
 ```
 ll fac[21];
@@ -3233,22 +3119,6 @@ ll permutation_index(vector<int>& p) { // n^2
 
 <!-- <div style="page-break-after: always;"></div> -->
 
-# shortest distance between a point m and a line segment 
-```
-using ld = long double;
-using point = complex<ld>;
-pair<ld, point> pointSegDis(point m, point a, point b) {
-    point ab_vec = b - a;
-    point am_vec = m - a;
-    ld t = real(conj(ab_vec) * am_vec) / norm(ab_vec);
-    t = max(0.0L, min(1.0L, t));
-    point closest = a + t * ab_vec;
-    return make_pair(abs(m - closest), closest);
-}
-```
-
-<!-- <div style="page-break-after: always;"></div> -->
-
 # FloorValues
 ```
 // code to get all different values of floor(n/i)
@@ -3260,186 +3130,12 @@ for (ll l = 1, r = 1; (n/l); l = r + 1) { // O(sqrt)
 
 <!-- <div style="page-break-after: always;"></div> -->
 
-# Debug.h
-```
-template<typename A, typename B> string to_string(pair<A,B> p);
-template<typename Container> auto to_string(const Container& c) 
-    -> decltype(c.begin(), c.end(), string());
-template<typename T, size_t N> 
-    string to_string(const array<T, N>& a);
-
-string to_string(char c) { return string(1, c); }
-string to_string(bool b) { return b ? "T" : "F"; }
-string to_string(string s) { return "\""+s+"\""; }
-string to_string(const char* s) { return string(s); }
-
-template<typename Container>
-auto to_string(const Container& c) 
-    -> decltype(c.begin(), c.end(), string()) {
-    string s="{";
-    bool first = true;
-    for(const auto& item : c) {
-        if(!first) s += ", ";
-        s += to_string(item);
-        first = false;
-    }
-    return s+"}";
-}
-
-template<typename T, size_t N> 
-string to_string(const array<T, N>& a) {
-    string s="{";
-    for(size_t i=0;i<N;i++) s+=(i?", ":"")+to_string(a[i]);
-    return s+"}";
-}
-
-template<typename A, typename B> string to_string(pair<A,B> p) {
-    return "("+to_string(p.first)+", "+to_string(p.second)+")";
-}
-
-void debug_out() { cout << "\n"; }
-template<typename H, typename... T>
-void debug_out(H&& h, T&&... t) {
-    cout << " " << to_string(std::forward<H>(h));
-    debug_out(std::forward<T>(t)...);
-}
-#define print(...) cout<<"["<<#__VA_ARGS__<<"]:",debug_out(__VA_ARGS__)
-```
-
-<!-- <div style="page-break-after: always;"></div> -->
-
 # Bit Twiddle Permute
 ```
 int bit_twiddle_permute(int v) { // next integer that has _pop_count(v) bits
     int t = v | (v - 1);
     int w = (t + 1) | (((~t & -~t) - 1) >> (__builtin_ctz(v) + 1));
     return w;
-}
-```
-
-<!-- <div style="page-break-after: always;"></div> -->
-
-# min cut Stoer Wagner
-```
-mt19937 rnd(chrono::steady_clock::now().time_since_epoch().count());
-struct StoerWagner { // n^3, 1-based, undirected
-    int n;
-    vector<vector<ll>> g;
-    vector<ll> dis;
-    vector<int> idx;
-    vector<bool> vis;
-    const ll inf = 1e18;
-    StoerWagner() {}
-    StoerWagner(int _n) {
-        n = _n;
-        int ns = _n+10;
-        g = vector<vector<ll>>(ns, vector<ll>(ns));
-        dis.resize(ns);
-        idx.resize(ns);
-        vis.resize(ns);
-    }
-    //undirected edge, multiple edges are merged into one edge
-    void add_edge(int u, int v, ll w) {
-        if (u != v) {
-            g[u][v] += w;
-            g[v][u] += w;
-        }
-    }
-    ll mincut() {
-        ll ans = inf;
-        for (int i = 0; i < n; ++i) 
-            idx[i] = i + 1;
-        shuffle(idx.begin(), idx.begin() + n, rnd);
-        int curr_n = n;
-        while (curr_n > 1) {
-            int t = 1, s = 0;
-            for (int i = 1; i < curr_n; ++i) {
-                dis[idx[i]] = g[idx[0]][idx[i]];
-                if (dis[idx[i]] > dis[idx[t]]) t = i;
-            }
-            fill(vis.begin(), vis.end(), false);
-            vis[idx[0]] = true;
-            for (int i = 1; i < curr_n; ++i) {
-                if (i == curr_n - 1) {
-                    if (ans > dis[idx[t]]) ans = dis[idx[t]];
-                    if (ans == 0) return 0;
-                    for (int j = 0; j < curr_n; ++j) {
-                        g[idx[s]][idx[j]] += g[idx[j]][idx[t]];
-                        g[idx[j]][idx[s]] += g[idx[j]][idx[t]];
-                    }
-                    idx[t] = idx[--curr_n];
-                }
-                vis[idx[t]] = true;
-                s = t;
-                t = -1;
-                for (int j = 1; j < curr_n; ++j) {
-                    if (!vis[idx[j]]) {
-                        dis[idx[j]] += g[idx[s]][idx[j]];
-                        if (t == -1 || dis[idx[t]] < dis[idx[j]]) t = j;
-                    }
-                }
-            }
-        }
-        return ans;
-    }
-};
-```
-
-<!-- <div style="page-break-after: always;"></div> -->
-
-# wheel factorization
-```
-vector<ll> fac(ll n) {
-    vector<ll> ret;
-    for (int d : {2, 3, 5}) {
-        while (n % d == 0) {
-            ret.emplace_back(d);
-            n /= d;
-        }
-    }
-    static array<int, 8> inc = {4, 2, 4, 2, 4, 6, 2, 6};
-    int i = 0;
-    for (ll d = 7; d * d <= n; d += inc[i++]) {
-        while (n % d == 0) {
-            ret.emplace_back(d);
-            n /= d;
-        }
-        if (i == 8) i = 0;
-    }
-    if (n > 1) ret.push_back(n);
-    return ret;
-}
-```
-
-<!-- <div style="page-break-after: always;"></div> -->
-
-# SOS DP
-```
-const int B = 22;
-const int M = 1 << B;
-// subset contribute to its superset
-void forward(vector<int> &dp) {
-    for (int i = 0; i < B; ++i)
-        for (int m = 0; m < M; ++m)
-            if (m & (1 << i)) dp[m] += dp[m ^ (1 << i)];
-}
-// superset contribute to its subset
-void forwardRev(vector<int> &dp) {
-    for (int i = 0; i < B; ++i)
-        for (int m = M - 1; ~m; --m)
-            if (m & (1 << i)) dp[m ^ (1 << i)] += dp[m];
-}
-// remove subset contribution from superset
-void backward(vector<int> &dp) {
-    for (int i = 0; i < B; ++i)
-        for (int m = M - 1; ~m; --m)
-            if (m & (1 << i)) dp[m] -= dp[m ^ (1 << i)];
-}
-// remove superset contribution from subset
-void backwardRev(vector<int> &dp) {
-    for (int i = 0; i < B; ++i)
-        for (int m = 0; m < M; ++m)
-            if (m & (1 << i)) dp[m ^ (1 << i)] -= dp[m];
 }
 ```
 
@@ -3855,7 +3551,6 @@ void lcs(char* X, char* Y, int m, int n)
             j--;
     }
 }
-
 ```
 
 <!-- <div style="page-break-after: always;"></div> -->
@@ -4269,7 +3964,7 @@ private:
 
 <!-- <div style="page-break-after: always;"></div> -->
 
-# Aho Corasick Algorithm aca
+# suffix automaton
 ```
 namespace sam {
     const int N = 4000200, SIGMA = 26; // N two times the max length
@@ -4471,46 +4166,47 @@ namespace sam {
 
 <!-- <div style="page-break-after: always;"></div> -->
 
-# sack, dsu on tree
+# sack, dsu on tree, small to large
 ```
 void pre(int u) {
     sz[u] = 1;
-    for (int &v : adj[u]) {
-        adj[v].erase(find(adj[v].begin(), adj[v].end(), u));
+    for (int &v : tree[u]) {
+        tree[v].erase(find(tree[v].begin(), tree[v].end(), u));
         pre(v);
         sz[u] += sz[v];
-        if (sz[v] > sz[adj[u].front()]) swap(v, adj[u].front());
+        if (sz[v] > sz[tree[u].front()]) swap(v, tree[u].front());
     }
 }
 
 void addver(int u) {
-    ffrq[++frq[A[u]]]++;
+    
 }
-void addsub(int u) {
-    addver(u);
-    for (int v : adj[u]) addsub(v);
+void removever(int u) {
+    
 }
 
-void removever(int u) {
-    ffrq[frq[A[u]]--]--;
+void addsub(int u) {
+    addver(u);
+    for (int v : tree[u]) addsub(v);
 }
 void removesub(int u) {
     removever(u);
-    for (int v : adj[u]) removesub(v);
+    for (int v : tree[u]) removesub(v);
 }
 
 void dfs(int u) {
-    for (int v : adj[u]) if (v != adj[u].front()) {
+    for (int v : tree[u]) if (v != tree[u].front()) {
         dfs(v);
         removesub(v);
     }
-    if (!adj[u].empty())
-        dfs(adj[u].front());
+    if (!tree[u].empty())
+        dfs(tree[u].front());
     addver(u);
-    for (int v : adj[u])
-        if (v != adj[u].front())
-        addsub(v);
-    for (auto [k, idx] : queries[u]) ans[idx] = ffrq[k];
+    for (int v : tree[u])
+        if (v != tree[u].front())
+            addsub(v);
+
+    // query[u]
 }
 ```
 
