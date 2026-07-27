@@ -803,11 +803,12 @@ u64 mix(u64 x) {
 }
 u64 treehash(int u, int p, vector<vector<int>>& t) {
     u64 ret = 1;
+    // do ret = ret * P + mix() if the order is important
     for (int v : t[u]) if (v ^ p)
         ret += mix(treehash(v, u, t));
     return ret;
 }
-
+// unrooted: find centroids and treat them as roots
 u64 utreehash(vector<vector<int>>& t) {
     int n = t.size();
     vector<int> sz(n), cents;
@@ -2247,7 +2248,7 @@ n*(2*n+1)*(2*n-1)/3
 Number of ways to pick equal number of elements from two sets : (n+m)C(m)
 
 Sum of phi(d) for all d | n is equal to n.
-Number of pairs (x, y) that satisfy x + y = n and gcd(x, y) = 1 is phi(n).
+Number of pairs (x,y) that satisfy x+y=n and gcd(x,y)=1 is phi(n).
 
 Sum(nCk) for k [0,n] = 2^n
 Sum(mCk) for all m [0,n] = (n+1)C(k+1)

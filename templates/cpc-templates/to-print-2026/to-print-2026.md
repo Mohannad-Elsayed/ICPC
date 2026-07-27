@@ -236,7 +236,8 @@ struct segmentTreeIterative {
     explicit segmentTreeIterative(int n) : n(n), tree(n << 1) {}
 
     template<class U>
-    explicit segmentTreeIterative(const vector<U> &arr) : n(arr.size()), tree(n << 1) {
+    explicit segmentTreeIterative(const vector<U> &arr) : n(arr.size()), 
+                tree(n << 1) {
         for(int i = 0; i < n; i++) tree[i + n] = info(arr[i]);
         for(int i = n - 1; i > 0; i--) tree[i] = tree[i << 1] + tree[i << 1 | 1];
     }
@@ -312,7 +313,8 @@ struct segmentTree2d {
     int nx, ny;
     vector<vector<info>> tree;
 
-    explicit segmentTree2d(int n, int m) : nx(n), ny(m), tree(nx << 1, vector<info>(ny << 1)) {}
+    explicit segmentTree2d(int n, int m) : nx(n), ny(m), tree(nx << 1, 
+        vector<info>(ny << 1)) {}
 
     template<class U>
     explicit segmentTree2d(const vector<vector<U>> &a) {
@@ -396,7 +398,8 @@ struct lazySegment {
 
     explicit lazySegment(int _n) : n(_n + 1), tr(4 << __lg(n)), lz(4 << __lg(n)) {}
     template<class U>
-    explicit lazySegment(const U &arr) : n(arr.size()), tr(4 << __lg(n)), lz(4 << __lg(n)) {
+    explicit lazySegment(const U &arr) : n(arr.size()), tr(4 << __lg(n)), 
+                lz(4 << __lg(n)) {
         build(1, 0, n - 1, arr);
     }
 
@@ -436,7 +439,8 @@ struct lazySegment {
         if (lx > r || l > rx) return;
         if (lx >= l && rx <= r) return lz[x] = v, push(x, lx, rx);
         int m = (lx + rx) >> 1;
-        applyRange(x << 1, lx, m, l, r, v), applyRange(x << 1 | 1, m + 1, rx, l, r, v);
+        applyRange(x << 1, lx, m, l, r, v), 
+        applyRange(x << 1 | 1, m + 1, rx, l, r, v);
         tr[x] = tr[x << 1] + tr[x << 1 | 1];
     }
 
@@ -511,12 +515,12 @@ struct dynamicLazySegmentTree {
 ## Dynamic Persistent Segment Tree
 ```cpp {.numberLines}
 template<class info>
-struct dynamicPersistentSegmentTree {
+struct DPSGT {
     struct node { int l = 0, r = 0; info v; };
     vector<node> tr;
     int n;
 
-    explicit dynamicPersistentSegmentTree(int n = 1e9, int expectedOps = 1) : n(n), tr(1) { 
+    explicit DPSGT(int n = 1e9, int expectedOps = 1) : n(n), tr(1) { 
         tr.reserve(expectedOps * __lg(n) * 2); 
     }
 
@@ -540,6 +544,147 @@ struct dynamicPersistentSegmentTree {
 
     int set(int root, int i, info v) { return set(root, 0, n, i, v); }
     info get(int root, int l, int r) { return get(root, 0, n, l, r); }
+};
+```
+## Wavelet Tree
+```cpp {.numberLines}
+struct WaveletTree {
+    int lo, hi;
+    WaveletTree *lc = 0, *rc = 0;
+    vector<int> b;
+
+    template<class It>
+    WaveletTree(It from, It to, int x, int y) : lo(x), hi(y) {
+        if (from >= to || lo == hi) return;
+        int mid = lo + (hi - lo) / 2;
+
+        b.reserve(distance(from, to) + 1);
+        b.push_back(0);
+        for (auto it = from; it != to; ++it) {
+            b.push_back(b.back() + (*it <= mid));
+        }
+
+        auto pivot = stable_partition(from, to, [mid](int val) 
+            { return val <= mid; });
+        lc = new WaveletTree(from, pivot, lo, mid);
+        rc = new WaveletTree(pivot, to, mid + 1, hi);
+    }
+
+    // the passed vector is changed, pass a copy in the main
+    // Takes a vector of integers, and the min/max values in it.
+    // The vector should be 0-indexed but queries works as 1-based
+    WaveletTree(vector<int>& a, int x, int y) :
+    WaveletTree(a.begin(), a.end(), x, y) {}
+
+    ~WaveletTree() { delete lc; delete rc; }
+
+    int kth(int l, int r, int k) {
+        if (l > r) return 0;
+        if (lo == hi) return lo;
+        int in_left = b[r] - b[l - 1], lb = b[l - 1], rb = b[r];
+        if (k <= in_left) return lc->kth(lb + 1, rb, k);
+        return rc->kth(l - lb, r - rb, k - in_left);
+    }
+
+    int LTE(int l, int r, int k) {
+        if (l > r || k < lo) return 0;
+        if (hi <= k) return r - l + 1;
+        int lb = b[l - 1], rb = b[r];
+        return lc->LTE(lb + 1, rb, k) + rc->LTE(l - lb, r - rb, k);
+    }
+
+    int count(int l, int r, int k) {
+        if (l > r || k < lo || k > hi) return 0;
+        if (lo == hi) return r - l + 1;
+        int mid = lo + (hi - lo) / 2, lb = b[l - 1], rb = b[r];
+        if (k <= mid) return lc->count(lb + 1, rb, k);
+        return rc->count(l - lb, r - rb, k);
+    }
+};
+```
+## Implicit Treap
+```cpp {.numberLines}
+// You must manually track the 'root' of your tree in your main function:
+//      Treap tree;
+//      int root = 0; 
+// 1. Insert 'val' at index 'i':
+//      int l, r;
+//      tree.split(root, i, l, r);
+//      int mid = tree.new_node(val);
+//      root = tree.merge(tree.merge(l, mid), r);
+//
+// 2. Delete the element at index 'i':
+//      auto [l, mid, r] = tree.split(root, i, i);
+//      root = tree.merge(l, r); // 'mid' is safely dropped and ignored
+//
+// 3. Range Sum for subarray [L, R]:
+//      auto [l, mid, r] = tree.split(root, L, R);
+//      long long ans = tree.tr[mid].sum;
+//      root = tree.merge(tree.merge(l, mid), r); // ALWAYS merge back!
+//
+// 4. Range Reverse for subarray [L, R]:
+//      auto [l, mid, r] = tree.split(root, L, R);
+//      tree.tr[mid].rev ^= 1; // apply the lazy tag
+//      root = tree.merge(tree.merge(l, mid), r); // ALWAYS merge back!
+// ------------------------------------------
+
+mt19937 rnd(time(nullptr));
+struct Treap {
+    struct node {
+        uint32_t pri = rnd();
+        int sz = 1, l = 0, r = 0, val{};
+        int64_t sum{};
+        bool rev = false;
+        node(int x) : sum(val = x) { }
+    };
+    vector<node> tr;
+    
+    // tr[0] acts as a dummy/null node to avoid segmentation faults
+    Treap() : tr(1, 0) { tr[0].sz = 0; }
+    
+    inline void pull(int x) {
+        tr[x].sz = tr[tr[x].l].sz + tr[tr[x].r].sz + 1;
+        tr[x].sum = tr[tr[x].l].sum + tr[tr[x].r].sum + tr[x].val;
+    }
+    
+    inline void push(int x) {
+        if(tr[x].rev) {
+            tr[tr[x].l].rev ^= 1, tr[tr[x].r].rev ^= 1;
+            swap(tr[x].l, tr[x].r);
+            tr[x].rev = false;
+        }
+    }
+    
+    // Returns the index of the newly created node
+    inline int new_node(int val) {
+        tr.emplace_back(val);
+        return int(tr.size()) - 1;
+    }
+    
+    // Concatenates treap 'rx' to the right of 'lx'. Returns the new root.
+    int merge(int lx, int rx) {
+        if(!lx || !rx) return rx + lx;
+        push(lx), push(rx);
+        if(tr[lx].pri < tr[rx].pri) 
+            return tr[rx].l = merge(lx, tr[rx].l), pull(rx), rx;
+        return tr[lx].r = merge(tr[lx].r, rx), pull(lx), lx;
+    }
+    
+    // Splits treap 'x' into 'lx' (first 'k' elements) and 'rx' (the rest).
+    void split(int x, int k, int &lx, int &rx) {
+        if(!x) return lx = rx = 0, void();
+        push(x);
+        if(k <= tr[tr[x].l].sz) split(tr[x].l, k, lx, tr[x].l), pull(rx = x);
+        else split(tr[x].r, k - tr[tr[x].l].sz - 1, tr[x].r, rx), pull(lx = x);
+    }
+    
+    // Helper to extract a specific subarray [l, r] into the middle partition
+    array<int, 3> split(int x, int l, int r) {
+        int a, b, c;
+        split(x, r + 1, b, c);
+        split(b, l, a, b);
+        return {a, b, c};
+    }
 };
 ```
 ## Sparse Table
@@ -570,11 +715,13 @@ struct sparse {
     T id;
 
     sparse(const vector<T>& arr, F merge, T id = T()) :
-        n(arr.size()), Log(__lg(n) + 1), table(Log, vector<T>(n)), merge(merge), id(id) {
+            n(arr.size()), Log(__lg(n) + 1), table(Log, vector<T>(n)), 
+            merge(merge), id(id) {
         table[0] = arr;
         for (int l = 1; l < Log; l++) {
             for (int i = 0; i + (1 << (l - 1)) < n; i++) {
-                table[l][i] = merge(table[l - 1][i], table[l - 1][i + (1 << (l - 1))]);
+                table[l][i] = merge(table[l - 1][i], 
+                table[l - 1][i + (1 << (l - 1))]);
             }
         }
     }
@@ -1071,7 +1218,8 @@ bool isNegativeCycle(int n, const vector<vector<int>>& adj) {
 	return false;
 }
 
-bool anyEffectiveCycle(int n, const vector<vector<int>>& adj, int src, int dest, int OO) {
+bool anyEffectiveCycle(int n, const vector<vector<int>>& adj, 
+        int src, int dest, int OO) {
 	// run floyd first
 	for (int i = 0; i < n; ++i)
 		if (adj[i][i] < 0 && adj[src][i] < OO && adj[i][dest] < OO)
@@ -1294,15 +1442,18 @@ void dfs(int u) {
 // --- USAGE REQUIREMENTS ---
 // 1. 'timer' must be declared and initialized to 0 outside the function.
 // 2. 'g' is your 0-based directed adjacency list (vector<vector<int>>).
-// 3. 'v' is a 0-based array/vector of vertex weights (used to find the min weight per SCC).
+// 3. 'v' is a 0-based array/vector of vertex weights
+    (used to find the min weight per SCC).
 // 4. 'idscc[i]' will hold the 0-based SCC ID for vertex 'i'.
 // 5. 'cond' generates the condensed DAG where each node is a distinct SCC.
 
 // --- MODIFICATIONS FOR BRIDGES & ARTICULATION POINTS (UNDIRECTED GRAPH) ---
 // 1. Update the lambda signature to pass the parent: tarj = [&](int u, int p = -1)
-// 2. Add 'int children = 0;' at the top of the lambda to count root children for APs.
+// 2. Add 'int children = 0;' at the top of the lambda to 
+    count root children for APs.
 // 3. Ignore the back-edge to the parent in the loop: if (v_ == p) continue;
-// 4. You can completely remove 'vis', 'stk', 'mn', and 'idscc' arrays if you aren't extracting SCCs.
+// 4. You can completely remove 'vis', 'stk', 'mn', and 'idscc' 
+    arrays if you aren't extracting SCCs.
 
 vector<int> tin(n, -1), low(n), vis(n), stk, mn, idscc(n, -1);
 function<void(int)> tarj = [&](int u) { // Change to: (int u, int p = -1)
@@ -1313,7 +1464,8 @@ function<void(int)> tarj = [&](int u) { // Change to: (int u, int p = -1)
     // int children = 0; // Uncomment for Articulation Points
 
     for (int v_ : g[u]) {
-        // if (v_ == p) continue; // Uncomment to prevent traversing back to parent in undirected graphs
+        // Uncomment to prevent traversing back to parent in undirected graphs
+        // if (v_ == p) continue; 
 
         if (tin[v_] == -1) {
             // children++; // Uncomment for Articulation Points
@@ -1327,13 +1479,15 @@ function<void(int)> tarj = [&](int u) { // Change to: (int u, int p = -1)
             // if (low[v_] >= tin[u] && p != -1) { /* Vertex 'u' is an AP */ }
 
         } else if (vis[v_]) { 
-            // Back-edge found. 'v_' is already visited AND still in the current stack
+            // Back-edge found. 'v_' is already visited AND 
+            // still in the current stack
             low[u] = min(low[u], tin[v_]);
         }
     }
 
     // --- SCC EXTRACTION LOGIC ---
-    // If 'u' is the root of an SCC, pop all vertices belonging to it from the stack
+    // If 'u' is the root of an SCC, pop all vertices belonging to 
+    // it from the stack
     if (low[u] == tin[u]) {
         int t;
         mn.push_back(1e5); // Initialize the minimum weight for this new SCC
@@ -1341,8 +1495,10 @@ function<void(int)> tarj = [&](int u) { // Change to: (int u, int p = -1)
             t = stk.back();
             stk.pop_back();
             vis[t] = 0; // Mark as removed from the active stack
-            mn.back() = min(mn.back(), v[t]); // Track min value (requires your 'v' array)
-            idscc[t] = (int)mn.size() - 1;    // Assign the new SCC ID to vertex 't'
+            // Track min value (requires your 'v' array)
+            mn.back() = min(mn.back(), v[t]); 
+            // Assign the new SCC ID to vertex 't'
+            idscc[t] = (int)mn.size() - 1;    
         } while (t ^ u);
     }
     
@@ -1360,6 +1516,134 @@ for (int i = 0; i < n; i++)
     for (int u : g[i])
         if (idscc[i] ^ idscc[u]) // If an edge connects two different SCCs
             cond[idscc[i]].push_back(idscc[u]);
+```
+## WLCA
+```cpp {.numberLines}
+template<class T>
+struct WLCA {
+    int n, Log;
+    vector<vector<int>> up;
+    vector<vector<T>> val;
+    vector<int> lvl;
+    explicit WLCA(vector<vector<pair<int, T>>> &g, int root = 0) : n((int)g.size()),
+            lvl(n), Log(__lg(n) + 1), up(n, vector<int>(Log, root)), 
+            val(n, vector<T>(Log)) {
+        function<void(int)> dfs = [&](int u) -> void {
+            for(auto [v, w] : g[u]) {
+                if(v == up[u][0]) continue;
+                lvl[v] = lvl[u] + 1, up[v][0] = u, val[v][0] = w;
+                for(int l = 1; l < Log; l++) {
+                    up[v][l] = up[up[v][l - 1]][l - 1];
+                    val[v][l] = val[v][l - 1] + val[up[v][l - 1]][l - 1];
+                }
+                dfs(v);
+            }
+        };
+        dfs(root);
+    }
+    pair<int, T> k_ancestor(int u, int k) {
+        T ans;
+        while(k) {
+            ans = ans + val[u][__builtin_ctz(k)];
+            u = up[u][__builtin_ctz(k)];
+            k &= k - 1;
+        }
+        return {u, ans};
+    }
+    int lca(int u, int v) {
+        if(lvl[u] < lvl[v]) swap(u, v);
+        u = k_ancestor(u, lvl[u] - lvl[v]).first;
+        if(u == v) return u;
+        for(int l = Log - 1; l >= 0; l--) {
+            if(up[u][l] ^ up[v][l]) {
+                u = up[u][l], v = up[v][l];
+            }
+        }
+        return up[u][0];
+    }
+    int dis(int u, int v, int l = -1) {
+        if(l == -1) l = lca(u, v);
+        return lvl[u] + lvl[v] - 2 * lvl[l];
+    }
+};
+```
+## Rerooter
+```cpp {.numberLines}
+namespace reroot {
+    const auto exclusive = [](const auto& a, const auto& base,
+                                const auto& merge_into, int vertex) {
+        int n = (int)a.size();
+        using Aggregate = decay_t<decltype(base)>;
+        vector<Aggregate> b(n, base);
+        for (int bit = __lg(n); bit >= 0; --bit) {
+            for (int i = n - 1; i >= 0; --i) b[i] = b[i >> 1];
+            int sz = n - (n & !bit);
+            for (int i = 0; i < sz; ++i) {
+                int index = (i >> bit) ^ 1;
+                b[index] = merge_into(b[index], a[i], vertex, i);
+            }
+        }
+        return b;
+    };
+    // MergeInto : Aggregate * Value * Vertex(int) * EdgeIndex(int) -> Aggregate
+    // Base : Vertex(int) -> Aggregate
+    // FinalizeMerge : Aggregate * Vertex(int) * EdgeIndex(int) -> Value
+    const auto rerooter = [](const auto& g, const auto& base, 
+                const auto& merge_into, const auto& finalize_merge) {
+        int n = (int)g.size();
+        using Aggregate = decay_t<decltype(base(0))>;
+        using Value = decay_t<decltype(finalize_merge(base(0), 0, 0))>;
+        vector<Value> root_dp(n), dp(n);
+        vector<vector<Value>> edge_dp(n), redge_dp(n);
+
+        vector<int> bfs, parent(n);
+        bfs.reserve(n);
+        bfs.push_back(0);
+        for (int i = 0; i < n; ++i) {
+            int u = bfs[i];
+            for (auto v : g[u]) {
+                if (parent[u] == v) continue;
+                parent[v] = u;
+                bfs.push_back(v);
+            }
+        }
+
+        for (int i = n - 1; i >= 0; --i) {
+            int u = bfs[i];
+            int p_edge_index = -1;
+            Aggregate aggregate = base(u);
+            for (int edge_index = 0; edge_index < (int)g[u].size(); ++edge_index) {
+                int v = g[u][edge_index];
+                if (parent[u] == v) {
+                    p_edge_index = edge_index;
+                    continue;
+                }
+                aggregate = merge_into(aggregate, dp[v], u, edge_index);
+            }
+            dp[u] = finalize_merge(aggregate, u, p_edge_index);
+        }
+
+        for (auto u : bfs) {
+            dp[parent[u]] = dp[u];
+            edge_dp[u].reserve(g[u].size());
+            for (auto v : g[u]) edge_dp[u].push_back(dp[v]);
+            auto dp_exclusive = exclusive(edge_dp[u], base(u), merge_into, u);
+            redge_dp[u].reserve(g[u].size());
+            for (int i = 0; i < (int)dp_exclusive.size(); ++i) 
+                redge_dp[u].push_back(finalize_merge(dp_exclusive[i], u, i));
+            root_dp[u] = finalize_merge(n > 1 ? 
+                merge_into(dp_exclusive[0], edge_dp[u][0], u, 0) : 
+                base(u), u, -1);
+            for (int i = 0; i < (int)g[u].size(); ++i) {
+                dp[g[u][i]] = redge_dp[u][i];
+            }
+        }
+
+        return make_tuple(move(root_dp), move(edge_dp), move(redge_dp));
+    };
+}  // namespace reroot
+// [&](Aggregate agg, Aggregate chdp, int v, int eid)
+// [&](Aggregate agg, int v, int eid);
 ```
 ## Dynamic Connectivity
 ```cpp {.numberLines}
@@ -1464,14 +1748,16 @@ struct DSURollback {
                 mp[{cur.u, cur.v}].emplace_back(i, queries.size());
             else {
                 mp[{cur.u, cur.v}].back().second = i - 1;
-                traverse(1, 0, q - 1, mp[{cur.u, cur.v}].back().first, mp[{cur.u, cur.v}].back().second, cur.u, cur.v);
+                traverse(1, 0, q - 1, mp[{cur.u, cur.v}].back().first, 
+                mp[{cur.u, cur.v}].back().second, cur.u, cur.v);
             }
         }
 
         for (auto i: mp) {
             for (auto j: i.second) {
                 if (j.second == q)
-                    traverse(1, 0, q - 1, j.first, q - 1, i.first.first, i.first.second);
+                    traverse(1, 0, q - 1, j.first, q - 1, i.first.first, 
+                    i.first.second);
             }
         }
     }
@@ -1563,7 +1849,8 @@ struct matching {
     int nl, nr;
     vector<vector<int>> g;
     vector<int> dis, ml, mr;
-    explicit matching(int nl, int nr) : nl(nl), nr(nr), g(nl), dis(nl), ml(nl, -1), mr(nr, -1) { }
+    explicit matching(int nl, int nr) : nl(nl), nr(nr), g(nl), dis(nl), ml(nl, -1), 
+    mr(nr, -1) { }
 
     void add(int l, int r) { // [i, j]
         g[l].push_back(r);
@@ -1623,7 +1910,8 @@ Stirling numbers of the first kind : the number of permutations of n elements wi
 S(n,k) = n * S(n-1,k) + S(n-1,k-1)
 Sum k = 0 -> n of S(n,k) = n!
 
-Stirling numbers of the second kind : the number of ways to partition a set of n elements into k nonempty subsets
+Stirling numbers of the second kind : the number of ways to partition 
+a set of n elements into k nonempty subsets
 S(n,k) = k * S(n-1,k) + S(n-1,k-1)
 Sum k = 0 -> n of S(n,k) = Bn
 
@@ -1665,7 +1953,8 @@ Divisibility:
 4 if the number formed by the last two digits is divisible by 4 
 5 if the rightmost digit is 0 or 5
 6 if it's divisible by 2 and 3
-7 if The number formed by all digits except the right-most digit - (2 * right-most digit) is divisible by 7
+7 if The number formed by all digits except the right-most digit - 
+    (2 * right-most digit) is divisible by 7
 8 if the number formed by the last 3 digits is divisible by 8
 9 if the sum of the digits is divisible by 9
 
@@ -1835,7 +2124,8 @@ int sumNPowerM(int n, int m) { // 1^m + 2^m ... n^m
     }
     int ans = 0;
     for(int i = 1; i < k; i++) {
-        int cur = int(res[i] * 1LL * p[i - 1] % mod * s[i + 1] % mod * inv[i - 1] % mod * inv[k - i - 1] % mod);
+        int cur = int(res[i] * 1LL * p[i - 1] % mod * s[i + 1] % mod * 
+            inv[i - 1] % mod * inv[k - i - 1] % mod);
         if((k - i + 1) & 1) cur = (mod - cur) % mod;
         ans = (ans + cur) % mod;
     }
@@ -1959,6 +2249,83 @@ for(int d = 2; d < N; ++d)
         for(int j = d; j < N; j += d)
             GC[i][j] = d;
 ```
+## Sieve up to 1e9
+```cpp {.numberLines}
+vector<int> sieve(const int BN, const int Q = 17, const int L = 1 << 15) {
+    using u = uint32_t; using u8 = uint8_t;
+    static const u rs[] = {1, 7, 11, 13, 17, 19, 23, 29};
+    struct P {
+        u p;
+        u pos[8];
+    };
+
+    const u v = sqrt(BN), vv = sqrt(v);
+    vector<bool> isp(v + 1, true);
+    for (u i = 2; i <= vv; ++i)
+        if (isp[i])
+            for (u j = i * i; j <= v; j += i) isp[j] = false;
+
+    const u rsize = BN > 60184 ? BN / (log(BN) - 1.1) : 
+        max(1.0, BN / (log(BN) - 1.11)) + 1 + 30;
+    vector<int> primes = {2, 3, 5}; u psize = 3;
+    primes.resize(rsize); vector<P> sprimes;
+
+    u pbeg = 0, prod = 1;
+    for (u p = 7; p <= v; ++p) {
+        if (!isp[p]) continue;
+        if (p <= Q) prod *= p, ++pbeg, primes[psize++] = p;
+        P pp = {p, {}};
+        for (int t = 0; t < 8; ++t) {
+            u j = p <= Q ? p : p * p;
+            while (j % 30 != rs[t]) j += p << 1;
+            pp.pos[t] = j / 30;
+        }
+        sprimes.push_back(pp);
+    }
+
+    vector<u8> pre(prod, 0xFF);
+    for (size_t pi = 0; pi < pbeg; ++pi) {
+        auto &pp = sprimes[pi];
+        const u p = pp.p;
+        for (int t = 0; t < 8; ++t) {
+            const u8 m = ~(1 << t);
+            for (u i = pp.pos[t]; i < prod; i += p) pre[i] &= m;
+        }
+    }
+
+    const u block_size = (L + prod - 1) / prod * prod;
+    vector<u8> block(block_size);
+    u8* __restrict pblock = block.data();
+    const u M = (BN + 29) / 30;
+
+    for (u beg = 0; beg < M; beg += block_size, pblock -= block_size) {
+        u end = min(M, beg + block_size);
+
+        for (u i = beg; i < end; i += prod)
+            memcpy(pblock + i, pre.data(), min(prod, end - i));
+        if (beg == 0) pblock[0] &= 0xFE;
+
+        for (size_t pi = pbeg; pi < sprimes.size(); ++pi) {
+            auto &pp = sprimes[pi];
+            const u p = pp.p;
+            #pragma GCC unroll 8
+            for (int t = 0; t < 8; ++t) {
+                u i = pp.pos[t];
+                const u8 m = ~(1 << t);
+                for (; i < end; i += p) pblock[i] &= m;
+                pp.pos[t] = i;
+            }
+        }
+
+        for (u i = beg; i < end; ++i)
+            for (u m = pblock[i]; m > 0; m &= m - 1)
+                primes[psize++] = i * 30 + rs[__builtin_ctz(m)];
+    }
+
+    while (psize > 0 && primes[psize - 1] > BN) --psize;
+    primes.resize(psize); return primes;
+}
+```
 ## Egcd, Linear Diaphontine
 ```cpp {.numberLines}
 array<ll, 3> eGcd(ll a, ll b) {
@@ -2034,7 +2401,8 @@ pair<T, T> CRT(T a1, T m1, T a2, T m2) {
   T m = m1 / g * m2;
   p = (p % m + m) % m;
   q = (q % m + m) % m;
-  return make_pair((p * a2 % m * (m1 / g) % m + q * a1 % m * (m2 / g) % m) %  m, m);
+  return make_pair((p * a2 % m * (m1 / g) % m + 
+                    q * a1 % m * (m2 / g) % m) %  m, m);
 }
 ```
 ## MillerRabin
@@ -2427,7 +2795,8 @@ ll permutation_index(vector<int>& p) { // n^2
 ## Rolling Hash
 ```cpp {.numberLines}
 using u64 = uint64_t;
-mt19937_64 rng(chrono::steady_clock::now().time_since_epoch().count() ^ (uintptr_t)make_unique<char>().get());
+mt19937_64 rng(chrono::steady_clock::now().time_since_epoch().count() ^ 
+    (uintptr_t)make_unique<char>().get());
 
 struct hash61 {
     static const u64 md = (1LL << 61) - 1;
@@ -2445,12 +2814,16 @@ struct hash61 {
     hash61(const T& s) : n(s.size()), pref(n + 1), suff(n + 1) {
         while (pw.size() <= n) pw.push_back(mul(pw.back(), step));
         pref[0] = suff[n] = 1;
-        for (int i = 0; i < n; i++) pref[i + 1] = add(mul(pref[i], step), s[i]);
-        for (int i = n - 1; i >= 0; i--) suff[i] = add(mul(suff[i + 1], step), s[i]);
+        for (int i = 0; i < n; i++) pref[i + 1] = 
+            add(mul(pref[i], step), s[i]);
+        for (int i = n - 1; i >= 0; i--) suff[i] = 
+            add(mul(suff[i + 1], step), s[i]);
     }
 
-    u64 operator()(int l, int r) const { return sub(pref[r + 1], mul(pref[l], pw[r - l + 1])); }
-    u64 rev(int l, int r) const { return sub(suff[l], mul(suff[r + 1], pw[r - l + 1])); }
+    u64 operator()(int l, int r) const { return sub(pref[r + 1], 
+        mul(pref[l], pw[r - l + 1])); }
+    u64 rev(int l, int r) const { return sub(suff[l],
+        mul(suff[r + 1], pw[r - l + 1])); }
 };
 
 struct hash61 {
@@ -2497,10 +2870,54 @@ struct hash61 {
         n--;
     }
 
-    u64 operator()(int l, int r) const { return sub(pref[r + 1], mul(pref[l], pw[r - l + 1])); }
+    u64 operator()(int l, int r) const { return sub(pref[r + 1], mul(pref[l], 
+        pw[r - l + 1])); }
     u64 rev(int l, int r) const { return mul(sub(suff[r + 1], suff[l]), ipw[l]); }
 };
 
+```
+## Tree Hash (rooted/unrooted)
+```cpp {.numberLines}
+// tree hash
+using u64 = uint64_t;
+mt19937_64 rng = []{
+    u64 time_entropy = chrono::steady_clock::now().time_since_epoch().count();
+    u64 memory_entropy = (uintptr_t)make_unique<char>().get();
+    seed_seq ss{time_entropy, memory_entropy};
+    return mt19937_64(ss);
+}();
+u64 SEED = rng();
+u64 mix(u64 x) {
+    x += SEED + 0x9e3779b97f4a7c15;
+    x = (x ^ x >> 30) * 0xbf58476d1ce4e5b9;
+    x = (x ^ x >> 27) * 0x94d049bb133111eb;
+    return x ^ x >> 31;
+}
+u64 treehash(int u, int p, vector<vector<int>>& t) {
+    u64 ret = 1;
+    // do ret = ret * P + mix() if the order is important
+    for (int v : t[u]) if (v ^ p)
+        ret += mix(treehash(v, u, t));
+    return ret;
+}
+// unrooted: find centroids and treat them as roots
+u64 utreehash(vector<vector<int>>& t) {
+    int n = t.size();
+    vector<int> sz(n), cents;
+    function<void(int, int)> dfs1 = [&](int u, int p) {
+        sz[u] = 1;
+        bool can = 1;
+        for (int v : t[u]) if (v ^ p) {
+            dfs1(v, u);
+            if (sz[v] * 2 > n) can = 0;
+            sz[u] += sz[v];
+        }
+        if (n - sz[u] > n/2) can = 0;
+        if (can) cents.push_back(u);
+    };
+    dfs1(0, 0);
+    return min(treehash(cents.front(), -1, t), treehash(cents.back(), -1, t));
+}
 ```
 ## Z-Algo
 ```cpp {.numberLines}
@@ -2523,7 +2940,8 @@ string largestLexSubstring(const string &s) {
     while (j + k < n) {
         if (s[i + k] == s[j + k]) k++;
         else if (s[i + k] < s[j + k])
-            i = max(i + k + 1, j), j = i + 1, k = 0; /* change it to > if you want lowest */
+            /* change it to > if you want lowest */
+            i = max(i + k + 1, j), j = i + 1, k = 0; 
         else j = j + k + 1, k = 0;
     }
 
@@ -2730,7 +3148,8 @@ struct suffix {
     vector<int> p, c, lcp;
     string s;
 
-    explicit suffix(string _s) : n(int(_s.size()) + 1), s(std::move(_s)), p(n), c(n), lcp(n - 1) {
+    explicit suffix(string _s) : n(int(_s.size()) + 1), s(std::move(_s)), p(n), 
+        c(n), lcp(n - 1) {
         s += char(0);
         iota(p.begin(), p.end(), 0);
         sort(p.begin(), p.end(), [&](int i, int j) { return s[i] < s[j]; });
@@ -2978,7 +3397,8 @@ namespace sam {
     void dfs(int cur, const vector<ll>& d) {
         if (vis[cur]) return;
         for (int i = 0; i < SIGMA; i++) if (~sa[cur][i]) {
-            cout << cur << "," << d[cur]-1 << ' ' << sa[cur][i] << "," << d[sa[cur][i]]-1 << ' ' << char(i+'a') << '\n';
+            cout << cur << "," << d[cur]-1 << ' ' << sa[cur][i] << 
+                "," << d[sa[cur][i]]-1 << ' ' << char(i+'a') << '\n';
             dfs(sa[cur][i], d);
         }
     }
@@ -2992,6 +3412,8 @@ namespace sam {
 ```cpp {.numberLines}
 
 ```
+
+\newpage
 
 # 6. Dynamic Programming
 ## LIS
@@ -3255,6 +3677,29 @@ for (ll i : left) {
     ans += high_iterator - low_iterator;
 }
 ```
+## Digit DP
+```cpp {.numberLines}
+using ull = unsigned long long int;
+#define int ull
+pair<int, int> dp[2][16];
+bool vis[2][16];
+string num;
+pair<int, int> rec(int idx, bool U) {
+    if (idx == num.size()) return {0, 1};
+    pair<int, int>& ret = dp[U][idx];
+    if (vis[U][idx]) return ret;
+    vis[U][idx] = 1;
+    ret = {0, 0};
+    int D = U ? num[idx] - '0' : 9;
+    for (int d = 0; d <= D; d++) {
+        auto [x, y] = rec(idx+1, U&d==D);
+        ret.first += x + d * y;
+        ret.second += y;
+    }
+    return ret;
+}
+```
+\newpage
 
 # 7. Bit Manipulation
 ## Max Xor Subset In Range
@@ -3332,6 +3777,8 @@ int bit_twiddle_permute(int v) { // next integer that has _pop_count(v) bits
     return w;
 }
 ```
+
+\newpage
 
 # 8. Game Theory and Sequences
 ## Mex Calculator
@@ -3435,6 +3882,8 @@ bool next_balanced_sequence(string & s) { // O(n)
 }
 ```
 
+\newpage
+
 # 9. Geometry
 ## Geometry Notes
 ```cpp {.numberLines}
@@ -3467,7 +3916,8 @@ void solve() {
 Area of the sector without an angle = (l * r) / 2
 The length of the arc l = (theta / 360) * 2 * pi * r
 
-The area of the parallelogram = the cross-product of 2 adjacent sides = 2 * area of the triangle made by 3 points.
+The area of the parallelogram = the cross-product of 
+    2 adjacent sides = 2 * area of the triangle made by 3 points.
 
 Given 1 side of the Pythagorean Triangle ... Get the missing 2 sides :
 ll n;
@@ -3490,10 +3940,12 @@ p = perimeter of the polygon
 p = S * n
 ap = S / (2 * tan(180/n)) = r * cos(180/n)
 r = S / (2 * sin(180/n)) = ap / cos(180/n)
-Area = (p * ap)/2 , (S^2 * n) / (4 * tan(180/n)) = ap^2 * n * tan(180/n) = (r^2 * n * sin(360/n))/2
+Area = (p * ap)/2 , (S^2 * n) / (4 * tan(180/n)) = ap^2 * n * tan(180/n) 
+    = (r^2 * n * sin(360/n))/2
 
 sin(2*theta) = 2 * sin(theta) * cos(theta)
-cos(2*theta) = cos(theta)^2 - sin(theta)^2 = 2 * cos(theta)^2 - 1 = 1 - 2 * sin(2*theta)^2
+cos(2*theta) = cos(theta)^2 - sin(theta)^2 = 2 * cos(theta)^2 - 1 
+    = 1 - 2 * sin(2*theta)^2
 sin(theta)^2 = (1 - cos(2 * theta))/2
 cos(theta)^2 = (1 + cos(2 * theta))/2
 tan(2*theta) = (2 * tan(theta)) / (1 - tan(theta)^2)
@@ -3811,7 +4263,8 @@ bool ptInConvex(vector<pt> &poly, pt p) {
 
     pt f = poly[0];
 
-    if(sign(cross(poly[1] - f, p - f)) < 0 || sign(cross(poly[n - 1] - f, p - f)) > 0) return false;
+    if(sign(cross(poly[1] - f, p - f)) < 0 || 
+        sign(cross(poly[n - 1] - f, p - f)) > 0) return false;
 
     int l = 1, r = n - 1;
     while(r > l + 1) {
