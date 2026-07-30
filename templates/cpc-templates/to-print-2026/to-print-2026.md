@@ -37,7 +37,7 @@ struct cmp {
         return ...;
     }
 };
-std::set<int, cmp> s;
+set<int, cmp> s;
 ```
 ## Fast HashMap (gp_hash_table)
 ```cpp {.numberLines}
@@ -113,20 +113,20 @@ diff[to_row + 1][to_col + 1] += v;
 ```cpp {.numberLines}
 struct BIT { // 0-based
     int n;
-    vector<long long> tree;
+    vector<ll> tree;
     
-    explicit BIT(int size) : n(size + 2), tree(n + 1) {}
-    void add(int i, long long val) {
+    BIT(int size) : n(size + 2), tree(n + 1) {}
+    void add(int i, ll val) {
         for(i++; i <= n; i += i & -i) tree[i] += val;
     }
-    long long query(int i) {
-        long long sum = 0;
+    ll query(int i) {
+        ll sum = 0;
         for (i++; i > 0; i &= i - 1) sum += tree[i];
         return sum;
     }
-    int lower_bound(long long target) {
+    int lower_bound(ll target) {
         int i = 0;
-        long long curr = 0;
+        ll curr = 0;
         for (int mask = 1 << __lg(n); mask > 0; mask >>= 1) {
             if (i + mask <= n && curr + tree[i + mask] < target) {
                 curr += tree[i += mask];
@@ -1129,38 +1129,36 @@ ll count_below(vector<T>& v, int sz, ll Limit){
 # 3. Graphs and Trees
 ## Bellman Ford
 ```cpp {.numberLines}
-// single source all destinations shortest path
-// n and m tends to(1e13) => time complexity(sqrt(n))
-const int INF = 1000000000;
-vector<vector<pair<int, int>>> adj;
-// return false if a negative cycle reachable from s exist
-bool spfa(int s, vector<int>& d) {
+// Computes Single-Source Shortest Paths (SSSP) on graphs that contain NEGATIVE edge weights.
+// It explicitly detects negative weight cycles reachable from the source vertex.
+// - Average Time Complexity: O(E) where E is the number of edges.
+// - Worst Case Time Complexity: O(V * E). 
+// vector<int> dist;
+// bool ok = spfa(0, adj, dist); 
+
+const int INF = 1e9;
+bool spfa(int s, const vector<vector<pair<int, int>>>& adj, vector<int>& d) {
     int n = adj.size();
     d.assign(n, INF);
     vector<int> cnt(n, 0);
-    vector<bool> inqueue(n, false);
+    vector<int> inqueue(n, 0); 
     queue<int> q;
 
     d[s] = 0;
     q.push(s);
-    inqueue[s] = true;
+    inqueue[s] = 1;
+    
     while (!q.empty()) {
         int v = q.front();
         q.pop();
-        inqueue[v] = false;
-
-        for (auto edge : adj[v]) {
-            int to = edge.first;
-            int len = edge.second;
-
+        inqueue[v] = 0;
+        for (const auto& [to, len] : adj[v]) {
             if (d[v] + len < d[to]) {
                 d[to] = d[v] + len;
                 if (!inqueue[to]) {
                     q.push(to);
-                    inqueue[to] = true;
-                    cnt[to]++;
-                    if (cnt[to] > n)
-                        return false;  // negative cycle
+                    inqueue[to] = 1;
+                    if (++cnt[to] > n) return false;  // negative cycle
                 }
             }
         }
@@ -1240,6 +1238,33 @@ while (!queue.empty()) {
     top_sort.push_back(curr);
     for (int next : graph[curr]) {
         if (--in_degree[next] == 0) { queue.push(next); }
+    }
+}
+```
+## Bipartite Check
+```cpp {.numberLines}
+int n;
+vector<vector<int>> adj;
+
+vector<int> side(n, -1);
+bool is_bipartite = true;
+queue<int> q;
+for (int st = 0; st < n; ++st) {
+    if (side[st] == -1) {
+        q.push(st);
+        side[st] = 0;
+        while (!q.empty()) {
+            int v = q.front();
+            q.pop();
+            for (int u : adj[v]) {
+                if (side[u] == -1) {
+                    side[u] = side[v] ^ 1;
+                    q.push(u);
+                } else {
+                    is_bipartite &= side[u] != side[v];
+                }
+            }
+        }
     }
 }
 ```
@@ -3702,6 +3727,106 @@ pair<int, int> rec(int idx, bool U) {
 \newpage
 
 # 7. Bit Manipulation
+## Xor Basis
+```cpp {.numberLines}
+template<const int Log = 30, typename T = ll>
+struct basis {
+    int sz = 0;
+    array<T, Log> a{};
+    void add(T x) {
+        if(sz == Log) return;
+        int i;
+        while(x) {
+            if(!a[i = __lg(x)]) return sz++, void(a[i] = x);
+            x ^= a[i];
+        }
+    }
+    T reduce(T x) {
+        if(sz == Log) return 0;
+        T res = 0;
+        int i;
+        while(x) {
+            if(a[i = __lg(x)]) x ^= a[i];
+            else res |= T(1) << i, x ^= T(1) << i;
+        }
+        return res;
+    }
+    bool find(T x) {
+        if(sz == Log) return true;
+        int i;
+        while(x) {
+            if(a[i = __lg(x)]) x ^= a[i];
+            else return false;
+        }
+        return true;
+    }
+    void clear() {
+        if(sz) a.fill(0), sz = 0;
+    }
+    T getMax(T r = 0) {
+        for(int i = Log - 1; i >= 0; i--) r = max(r ^ a[i], r);
+        return r;
+    }
+
+    T find_k(size_t k, T base_val = 0) {
+        assert(k < 1ULL << sz);
+        T curr = base_val;
+        for(int i = Log - 1, b = sz - 1; i >= 0; i--) {
+            if(a[i]) {
+                if((k >> b & 1) ^ (curr >> i & 1)) curr ^= a[i];
+                b--;
+            }
+        }
+        return curr;
+    }
+
+    T getMaxBounded(T limit, T r = 0) {
+        T best = -1;
+        for (int i = Log - 1; i >= 0; i--) {
+            if (a[i]) {
+                T r1 = r, r2 = r ^ a[i];
+                if ((r1 >> i) & 1) swap(r1, r2);
+
+                if ((limit >> i) & 1) {
+                    T temp = r1;
+                    for (int j = i - 1; j >= 0; j--) 
+                        temp = max(temp ^ a[j], temp);
+                    best = max(best, temp);
+                    r = r2;
+                } else 
+                    r = r1;
+            } else {
+                int bit_r = (r >> i) & 1;
+                int bit_l = (limit >> i) & 1;
+
+                if (bit_l == 1 && bit_r == 0) {
+                    T temp = r;
+                    for (int j = i - 1; j >= 0; j--) 
+                        temp = max(temp ^ a[j], temp);
+                    best = max(best, temp);
+                    r = -1;
+                    break;
+                }
+                if (bit_l == 0 && bit_r == 1) {
+                    r = -1;
+                    break;
+                }
+            }
+        }
+        if (r != -1) best = max(best, r);
+
+        return best;
+    }
+
+    friend basis operator+(basis const &l, basis const &r) {
+        if(l.sz == Log) return l;
+        if(r.sz == Log) return r;
+        auto res = l;
+        for(int i = 0; i < Log; i++) if(r.a[i]) res.add(r.a[i]);
+        return res;
+    }
+};
+```
 ## Max Xor Subset In Range
 ```cpp {.numberLines}
 // Given queries L,R find max XOR subset in range
