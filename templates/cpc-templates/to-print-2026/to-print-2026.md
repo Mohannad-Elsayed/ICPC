@@ -24,6 +24,9 @@ signed main() {
 ## Precompile stdc++.h
 ```cpp {.numberLines}
 sudo g++ -x c++-header -std=c++17 -O0 stdc++.h -o stdc++.h.gch
+ulimit -s ${size in kb}
+add empty template to live templates
+increase undo range to 10k (ctrl+shift+A) -> registry -> undo
 ```
 ## Pragmas
 ```cpp {.numberLines}
@@ -104,6 +107,119 @@ ostream& operator<<(ostream& os, __int128_t v) {
 \newpage
 
 # 2. Data Structures
+## Mo struct
+```cpp {.numberLines}
+const int N = 1e5 + 5, sq = 317;
+struct query{
+    int l, r, i;
+    bool operator<(const query &other) const {
+        if (l / sq != other.l / sq)
+            return l / sq < other.l / sq;
+        return (l / sq & 1 ? r < other.r : other.r < r);
+    }
+};
+```
+## Mo with updates
+```cpp {.numberLines}
+const int N = 2e5 + 5;
+int a[N];
+vector<int> coords;
+long long curAns, ans[N];
+
+struct Query {
+    int l, r, t, id, blk_l, blk_r;
+
+    bool operator<(const Query& o) const {
+        if (blk_l != o.blk_l) return blk_l < o.blk_l;
+        if (blk_r != o.blk_r) return (blk_l & 1) ? blk_r < o.blk_r : blk_r > o.blk_r;
+        return (blk_r & 1) ? t < o.t : t > o.t;
+    }
+};
+
+struct Update {
+    int p, v;
+};
+
+vector<Query> queries;
+vector<Update> updates;
+int vals[N];
+
+inline void add(int i) {
+    if (++vals[a[i]] == 1) curAns += coords[a[i]];
+}
+
+inline void del(int i) {
+    if (!--vals[a[i]]) curAns -= coords[a[i]];
+}
+
+inline void do_update(int t, int l, int r) {
+    auto &u = updates[t];
+    if (l <= u.p && u.p <= r) del(u.p);
+    swap(a[u.p], u.v);
+    if (l <= u.p && u.p <= r) add(u.p);
+}
+
+void process(int n) {
+    constexpr int block = 700;
+    for (auto &q: queries) {
+        q.blk_l = q.l / block;
+        q.blk_r = q.r / block;
+    }
+    sort(queries.begin(), queries.end());
+
+    int l = 1, r = 0, t = 0;
+    for (const auto &q: queries) {
+        while (t < q.t) do_update(t++, l, r);
+        while (t > q.t) do_update(--t, l, r);
+        while (l > q.l) add(--l);
+        while (r < q.r) add(++r);
+        while (l < q.l) del(l++);
+        while (r > q.r) del(r--);
+
+        ans[q.id] = curAns;
+    }
+}
+
+void solve() {
+    int n;
+    cin >> n;
+    coords.reserve(n << 1);
+    for (int i = 0; i < n; i++) cin >> a[i], coords.push_back(a[i]);
+    int q, j = 0;
+    cin >> q;
+    for (int i = 0; i < q; i++) {
+        string s;
+        cin >> s;
+        if (s.front() == 'Q') {
+            int l, r;
+            cin >> l >> r;
+            queries.push_back({--l, --r, (int) updates.size(), j, 0, 0});
+            j++;
+        } else {
+            int idx, val;
+            cin >> idx >> val;
+            --idx;
+            updates.push_back({idx, val});
+            coords.push_back(val);
+        }
+    }
+
+    sort(coords.begin(), coords.end());
+    coords.erase(unique(coords.begin(), coords.end()), coords.end());
+    for (int i = 0; i < n; i++) a[i] = lower_bound(coords.begin(), coords.end(), a[i]) - coords.begin();
+    for (auto &o: updates) o.v = lower_bound(coords.begin(), coords.end(), o.v) - coords.begin();
+
+    // pass n to the process function
+    process(n);
+    
+    for (int i = 0; i < j; i++) cout << ans[i] << ' ';
+
+    queries.clear();
+    updates.clear();
+    coords.clear();
+    curAns = 0;
+}
+```
 ## 2D Prefix Sum
 ```cpp {.numberLines}
 // construction
@@ -129,6 +245,29 @@ diff[from_row][to_col + 1] -= v;
 diff[to_row + 1][from_col] -= v;
 diff[to_row + 1][to_col + 1] += v;
 // then construct diff, grid[i][j] += diff[i][j];
+```
+## Multiset Lazy deletion
+```cpp {.numberLines}
+template<typename T, typename Compare = less<T>>
+struct MS {
+    priority_queue<T, vector<T>, Compare> pq, del;
+    void normalize(){
+        while(!pq.empty() && !del.empty() && pq.top() == del.top()){
+            pq.pop();
+            del.pop();
+        }
+    }
+    bool empty() { normalize(); return size() == 0; }
+    int size() { return (int)pq.size() - (int)del.size(); }
+    void insert(T x) { pq.push(x); }
+    void erase(T x) { del.push(x);}
+    T top() { normalize(); return pq.top(); }
+    void pop() { normalize(); pq.pop(); }
+    void clear() {
+        while(!pq.empty()) pq.pop();
+        while(!del.empty()) del.pop();
+    }
+};
 ```
 ## BIT, Fenwick Tree
 ```cpp {.numberLines}
@@ -1488,6 +1627,30 @@ for (int st = 0; st < n; ++st) {
     }
 }
 ```
+## Dijkstra
+```cpp {.numberLines}
+vector<ll> dijkstra(int src, vector<int> &parent) {
+    vector<ll> dist(n + 1, INF);
+    parent.assign(n + 1, -1);
+    priority_queue<pair<ll, int>, vector<pair<ll, int> >, greater<pair<ll, int> > >
+            pq;
+    dist[src] = 0;
+    pq.push({0, src});
+    while (!pq.empty()) {
+        auto [d, v] = pq.top();
+        pq.pop();
+        if (d != dist[v]) continue;
+        for (auto [u, w]: graph[v]) {
+            if (dist[u] > d + w) {
+                dist[u] = d + w;
+                parent[u] = v;
+                pq.push({dist[u], u});
+            }
+        }
+    }
+    return dist;
+}
+```
 ## Tree Diameter
 ```cpp {.numberLines}
 pair<int, int> dfs(int u, int p) {
@@ -1580,6 +1743,49 @@ struct tree {
         return lvl[u] + lvl[v] - 2 * lvl[lca(u, v)];
     }
 };
+```
+## Tree Hash (rooted/unrooted)
+```cpp {.numberLines}
+// tree hash
+using u64 = uint64_t;
+mt19937_64 rng = []{
+    u64 time_entropy = chrono::steady_clock::now().time_since_epoch().count();
+    u64 memory_entropy = (uintptr_t)make_unique<char>().get();
+    seed_seq ss{time_entropy, memory_entropy};
+    return mt19937_64(ss);
+}();
+u64 SEED = rng();
+u64 mix(u64 x) {
+    x += SEED + 0x9e3779b97f4a7c15;
+    x = (x ^ x >> 30) * 0xbf58476d1ce4e5b9;
+    x = (x ^ x >> 27) * 0x94d049bb133111eb;
+    return x ^ x >> 31;
+}
+u64 treehash(int u, int p, vector<vector<int>>& t) {
+    u64 ret = 1;
+    // do ret = ret * P + mix() if the order is important
+    for (int v : t[u]) if (v ^ p)
+        ret += mix(treehash(v, u, t));
+    return ret;
+}
+// unrooted: find centroids and treat them as roots
+u64 utreehash(vector<vector<int>>& t) {
+    int n = t.size();
+    vector<int> sz(n), cents;
+    function<void(int, int)> dfs1 = [&](int u, int p) {
+        sz[u] = 1;
+        bool can = 1;
+        for (int v : t[u]) if (v ^ p) {
+            dfs1(v, u);
+            if (sz[v] * 2 > n) can = 0;
+            sz[u] += sz[v];
+        }
+        if (n - sz[u] > n/2) can = 0;
+        if (can) cents.push_back(u);
+    };
+    dfs1(0, 0);
+    return min(treehash(cents.front(), -1, t), treehash(cents.back(), -1, t));
+}
 ```
 ## Binary Lifting
 ```cpp {.numberLines}
@@ -3151,6 +3357,134 @@ ll LinearRecurrence(const vector<ll>& S, const vector<ll>& tr, ll k) { // O(N^2 
 \newpage
 
 # 5. Strings
+## Trie (s)
+### Global Arrays
+```cpp {.numberLines}
+const int MXN = 1000005, S = 26, OFFSET = 'a';
+int nxt[MXN][S], cnt[MXN], isend[MXN], nodes = 1;
+// clear the arrays you add here in clear() function
+void clear() {
+    for (int i = 0; i < nodes; i++) {
+        cnt[i] = isend[i] = 0;
+        memset(nxt[i], 0, sizeof(nxt[i]));
+    }
+    nodes = 1;
+}
+void insert(const string& s) {
+    int u = 0;
+    for (char c : s) {
+        int v = c - OFFSET;
+        if (!nxt[u][v]) nxt[u][v] = nodes++;
+        u = nxt[u][v];
+        cnt[u]++;
+    }
+    isend[u]++;
+}
+int search(const string& s) {
+    int u = 0;
+    for (char c : s) {
+        int v = c - OFFSET;
+        if (!nxt[u][v]) return false;
+        u = nxt[u][v];
+    }
+    return cnt[u];
+}
+// clear() insert() 
+```
+### Unordered_map
+```cpp {.numberLines}
+const int MXN = 1000005;
+struct Node {
+    unordered_map<char, int> nxt;
+    int cnt = 0;
+} tree[MXN];
+int node_cnt = 1;
+void clear() {
+    for (int i = 0; i < node_cnt; i++) {
+        tree[i].nxt.clear();
+        tree[i].cnt = 0;
+    }
+    node_cnt = 1;
+}
+void insert(const string& s) {
+    int u = 0;
+    for (char c : s) {
+        auto it = tree[u].nxt.find(c);
+        if (it == tree[u].nxt.end()) {
+            tree[u].nxt[c] = node_cnt;
+            u = node_cnt++;
+        } else {
+            u = it->second;
+        }
+        tree[u].cnt++;
+    }
+}
+int search(const string& s) {
+    int u = 0;
+    for (char c : s) {
+        auto it = tree[u].nxt.find(c);
+        if (it == tree[u].nxt.end()) return false;
+        u = it->second;
+    }
+    return tree[u].cnt;
+}
+// clear() insert() 
+```
+### Forward Start Trie
+```cpp {.numberLines}
+const int MXN = 1000005;
+int head[MXN]; // points to the first child of a node
+int nxt[MXN];  // points to the next sibling of a node
+char val[MXN]; // the character that leads to this node
+int cnt[MXN], isend[MXN];
+int node_cnt = 1;
+void clear() {
+    fill(head, head + node_cnt, 0);
+    fill(nxt, nxt + node_cnt, 0);
+    fill(cnt, cnt + node_cnt, 0);
+    fill(isend, isend + node_cnt, 0);
+    node_cnt = 1;
+}
+void insert(const string& s) {
+    int u = 0;
+    for (char c : s) {
+        int child = head[u];
+        bool found = false;
+        while (child) {
+            if (val[child] == c) {
+                u = child;
+                found = true;
+                break;
+            }
+            child = nxt[child];
+        }
+        if (!found) {
+            val[node_cnt] = c;
+            nxt[node_cnt] = head[u];
+            head[u] = node_cnt;
+            u = node_cnt++;
+        }
+        cnt[u]++;
+    }
+}
+int search(const string& s) {
+    int u = 0;
+    for (char c : s) {
+        int child = head[u];
+        bool found = false;
+        while (child) {
+            if (val[child] == c) {
+                u = child;
+                found = true;
+                break;
+            }
+            child = nxt[child];
+        }
+        if (!found) return 0;
+    }
+    return cnt[u];
+}
+```
 ## Rolling Hash
 ```cpp {.numberLines}
 using u64 = uint64_t;
@@ -3167,7 +3501,7 @@ struct hash61 {
 
     u64 add(u64 a, u64 b) const { return (a += b) >= md ? a - md : a; }
     u64 sub(u64 a, u64 b) const { return (a += md - b) >= md ? a - md : a; }
-    u64 mul(u64 a, u64 b) const { return (unsigned __int128)a * b % md; }
+    u64 mul(u64 a, u64 b) const { return __uint128_t(a) * b % md; }
 
     template<class T>
     hash61(const T& s) : n(s.size()), pref(n + 1), suff(n + 1) {
@@ -3235,47 +3569,45 @@ struct hash61 {
 };
 
 ```
-## Tree Hash (rooted/unrooted)
+## KMP
 ```cpp {.numberLines}
-// tree hash
-using u64 = uint64_t;
-mt19937_64 rng = []{
-    u64 time_entropy = chrono::steady_clock::now().time_since_epoch().count();
-    u64 memory_entropy = (uintptr_t)make_unique<char>().get();
-    seed_seq ss{time_entropy, memory_entropy};
-    return mt19937_64(ss);
-}();
-u64 SEED = rng();
-u64 mix(u64 x) {
-    x += SEED + 0x9e3779b97f4a7c15;
-    x = (x ^ x >> 30) * 0xbf58476d1ce4e5b9;
-    x = (x ^ x >> 27) * 0x94d049bb133111eb;
-    return x ^ x >> 31;
+vector<int> KMP(const string &s){
+    int n = s.length();
+    vector<int> pi(n);
+    for (int i = 1; i < n; i++){
+        int j = pi[i - 1];
+        while (j > 0 && s[i] != s[j]){
+            j = pi[j - 1];
+        }
+        if (s[i] == s[j]) j++;
+        pi[i] = j;
+    }
+    return pi;
 }
-u64 treehash(int u, int p, vector<vector<int>>& t) {
-    u64 ret = 1;
-    // do ret = ret * P + mix() if the order is important
-    for (int v : t[u]) if (v ^ p)
-        ret += mix(treehash(v, u, t));
+vector<int> find_occurrences(const string &pat, const string &text){
+    string s = pat + '#' + text;
+    vector<int> pi = KMP(s), ret;
+    int m = pat.size();
+    for (int i = m + 1; i < (int)s.size(); i++){
+        if (pi[i] == m) ret.push_back(i - 2 * m);
+    }
     return ret;
 }
-// unrooted: find centroids and treat them as roots
-u64 utreehash(vector<vector<int>>& t) {
-    int n = t.size();
-    vector<int> sz(n), cents;
-    function<void(int, int)> dfs1 = [&](int u, int p) {
-        sz[u] = 1;
-        bool can = 1;
-        for (int v : t[u]) if (v ^ p) {
-            dfs1(v, u);
-            if (sz[v] * 2 > n) can = 0;
-            sz[u] += sz[v];
+vector<vector<int>> automaton(string s){ // aut[s.length() + 1][26]
+    s += '#';
+    int n = s.length();
+    vector<int> pi = KMP(s);
+    vector<vector<int>> aut(n, vector<int>(26));
+    for (int i = 0; i < n; i++){
+        for (int j = 0; j < 26; j++){
+            if (i > 0 && 'a' + j != s[i]){
+                aut[i][j] = aut[pi[i - 1]][j];
+            }else{
+                aut[i][j] = i + ('a' + j == s[i]);
+            }
         }
-        if (n - sz[u] > n/2) can = 0;
-        if (can) cents.push_back(u);
-    };
-    dfs1(0, 0);
-    return min(treehash(cents.front(), -1, t), treehash(cents.back(), -1, t));
+    }
+    return aut;
 }
 ```
 ## Z-Algo
@@ -3414,89 +3746,124 @@ namespace corasick {
     }
 } /* init() insert() build() search() */
 ```
-## XOR Trie
+## Dynamic Aho Corasick
 ```cpp {.numberLines}
-template<typename T>
-class BinaryTrie {
-private:
-    vector<array<int, 2>> nodes;
-    vector<int> sz;
-    int numberOfBits;
-    T one = 1;
+struct AC {
+    int N, P;
+    static const int A = 26;
+    vector<array<int, A> > next;
+    vector<int> link, out_link, cnt;
+    vector<vector<int> > out, rev;
+    AC() : N(0), P(0) { node(); }
 
-    bool isNodeAvailable(int cur, bool nxt) {
-        return nodes[cur][nxt] != 0 && sz[nodes[cur][nxt]] > 0;
+    int node() {
+        next.push_back(array<int, A>{0});
+        rev.push_back({});
+        cnt.emplace_back(0);
+        link.emplace_back(0);
+        out_link.emplace_back(0);
+        out.emplace_back();
+        return N++;
     }
 
-    int getNode(T x) {
-        int cur = 0;
-        for (int i = numberOfBits - 1; i >= 0; --i) {
-            bool nxt = (x >> i) & 1;
-            if (nodes[cur][nxt] == 0) {
-                nodes[cur][nxt] = nodes.size();
-                nodes.push_back({0, 0});
-                sz.push_back(0);
-            }
-            cur = nodes[cur][nxt];
+    inline int get(char c) { return c - 'a'; }
+
+    int add_pattern(const string &T) {
+        int u = 0;
+        for (auto c: T) {
+            if (!next[u][get(c)]) next[u][get(c)] = node();
+            u = next[u][get(c)];
         }
-        return cur;
+        out[u].push_back(P);
+        cnt[u]++;
+        return P++;
     }
 
-public:
-    BinaryTrie() : nodes(1, {0, 0}), sz(1, 0), numberOfBits(sizeof(T) * 8) {}
-
-    void insert(T x, int cnt = 1) {
-        int cur = 0;
-        sz[cur] += cnt;
-        for (int i = numberOfBits - 1; i >= 0; --i) {
-            bool nxt = (x >> i) & 1;
-            if (nodes[cur][nxt] == 0) {
-                nodes[cur][nxt] = nodes.size();
-                nodes.push_back({0, 0});
-                sz.push_back(0);
-            }
-            cur = nodes[cur][nxt];
-            sz[cur] += cnt;
-        }
-    }
-
-    void erase(T x, int cnt = 1) { insert(x, -cnt); }
-
-    T getMinXor(T x) {
-        if (sz[0] == 0) throw out_of_range("The trie is empty");
-        int cur = 0;
-        T ret = 0;
-        for (int i = numberOfBits - 1; i >= 0; --i) {
-            bool nxt = (x >> i) & 1;
-            if (isNodeAvailable(cur, nxt)) {
-                cur = nodes[cur][nxt];
-            } else {
-                ret |= (one << i);
-                cur = nodes[cur][!nxt];
+    void build() {
+        queue<int> q;
+        q.push(0);
+        while (!q.empty()) {
+            int u = q.front();
+            q.pop();
+            for (int c = 0; c < A; c++) {
+                int v = next[u][c];
+                if (!v) next[u][c] = next[link[u]][c];
+                else {
+                    link[v] = u ? next[link[u]][c] : 0;
+                    rev[link[v]].push_back(v);
+                    cnt[v] += cnt[link[v]];
+                    out_link[v] = out[link[v]].empty() ?
+                        out_link[link[v]] : link[v];
+                    q.push(v);
+                }
             }
         }
-        return ret;
     }
 
-    T getMaxXor(T x) {
-        if (sz[0] == 0) throw out_of_range("The trie is empty");
-        int cur = 0;
-        T ret = 0;
-        for (int i = numberOfBits - 1; i >= 0; --i) {
-            bool nxt = !((x >> i) & 1);
-            if (isNodeAvailable(cur, nxt)) {
-                ret |= (one << i);
-                cur = nodes[cur][nxt];
-            } else {
-                cur = nodes[cur][!nxt];
+    int advance(int u, char c) {
+        return next[u][get(c)];
+    }
+
+    vector<vector<int> > search(const string &s, vector<int> &pat) {
+        int n = (int) s.length(), m = (int) pat.size();
+        int u = 0;
+        vector<vector<int> > ret(m);
+        for (int i = 0; i < n; i++) {
+            char c = s[i];
+            u = advance(u, c);
+            int x = u;
+            while (x != 0) {
+                for (int v: out[x]) ret[v].push_back(i - pat[v] + 1);
+                x = out_link[x];
             }
         }
         return ret;
     }
+};
 
-    size_t size() { return sz[0]; }
-    bool contains(T x) { return sz[0] && getMinXor(x) == 0; }
-    int count(T x) { return sz[getNode(x)]; }
+struct dynamic_AC {
+    int lg;
+    vector<vector<string> > a;
+    vector<AC> aho;
+
+    dynamic_AC(int LOG = 20) {
+        lg = LOG;
+        a = vector<vector<string> >(lg);
+        aho = vector<AC>(lg);
+    }
+
+    void insert(const string &s) {
+        vector<string> have = {s};
+        for (int i = 0; i < lg; i++) {
+            if (i == lg - 1) {
+                lg++;
+                a.push_back({});
+                aho.push_back(AC());
+            }
+            if (a[i].empty()) {
+                swap(have, a[i]);
+                for (auto &v: a[i]) aho[i].add_pattern(v);
+                aho[i].build();
+                break;
+            } else {
+                have.insert(end(have), begin(a[i]), end(a[i]));
+                vector<string>().swap(a[i]);
+                aho[i] = AC();
+            }
+        }
+    }
+
+    ll cnt(const string &s) {
+        ll answer = 0;
+        for (int i = 0; i < lg; i++) {
+            int state = 0;
+            for (auto &v: s) {
+                state = aho[i].advance(state, v);
+                answer += aho[i].cnt[state];
+            }
+        }
+        return answer;
+    }
 };
 ```
 ## Suffix Array
@@ -4061,6 +4428,100 @@ pair<int, int> rec(int idx, bool U) {
 \newpage
 
 # 7. Bit Manipulation
+## Binary Trie (s)
+```cpp {.numberLines}
+// MXN should generally be (Max Queries * MXB)
+const int MXN = 500500 * 30, S = 2, MXB = 30;
+int nxt[MXN][S], cnt[MXN], nodes = 1;
+// clear the arrays you add here in clear() function
+void clear() {
+    for (int i = 0; i < nodes; i++) {
+        nxt[i][0] = nxt[i][1] = 0;
+        cnt[i] = 0;
+    }
+    nodes = 1;
+}
+void trieinsert(long long val) {
+    int u = 0;
+    for (int i = MXB - 1; i >= 0; i--) {
+        int bit = (val >> i) & 1;
+        if (!nxt[u][bit]) nxt[u][bit] = nodes++;
+        u = nxt[u][bit];
+        cnt[u]++;
+    }
+}
+int triecount(long long val) {
+    int u = 0;
+    for (int i = MXB - 1; i >= 0; i--) {
+        int bit = (val >> i) & 1;
+        if (!nxt[u][bit]) return 0;
+        u = nxt[u][bit];
+    }
+    return cnt[u];
+}
+void trieerase(long long val) {
+    if (!triecount(val)) return;
+    int u = 0;
+    for (int i = MXB - 1; i >= 0; i--) {
+        int bit = (val >> i) & 1;
+        u = nxt[u][bit];
+        cnt[u]--;
+    }
+}
+long long get_max_xor(long long val) {
+    if (nodes == 1 || cnt[nxt[0][0]] + cnt[nxt[0][1]] == 0) return -1;
+    int u = 0;
+    long long ans = 0;
+    for (int i = MXB - 1; i >= 0; i--) {
+        int bit = (val >> i) & 1;
+        int opp = bit ^ 1;
+        if (nxt[u][opp] && cnt[nxt[u][opp]] > 0) {
+            ans |= (1LL << i);
+            u = nxt[u][opp];
+        } else {
+            u = nxt[u][bit];
+        }
+    }
+    return ans;
+}
+long long get_min_xor(long long val) {
+    if (nodes == 1 || cnt[nxt[0][0]] + cnt[nxt[0][1]] == 0) return -1;
+    int u = 0;
+    long long ans = 0;
+    for (int i = MXB - 1; i >= 0; i--) {
+        int bit = (val >> i) & 1;
+        if (nxt[u][bit] && cnt[nxt[u][bit]] > 0) {
+            u = nxt[u][bit];
+        } else {
+            ans |= (1LL << i);
+            u = nxt[u][bit ^ 1];
+        }
+    }
+    return ans;
+}
+// Returns the count of numbers 'x' in the trie such that (x ^ val) < k
+int query(long long val, long long k) {
+    int u = 0, ans = 0;
+    for (int i = MXB - 1; i >= 0; i--) {
+        if (!u) break;
+        int v_bit = (val >> i) & 1;
+        int k_bit = (k >> i) & 1;
+
+        if (k_bit == 1) {
+            // If k's bit is 1, taking v_bit makes the XOR bit 0, which is strictly less than k.
+            // We add all elements in that subtree to our answer.
+            if (nxt[u][v_bit]) ans += cnt[nxt[u][v_bit]];
+            // Then we traverse down the opposite branch to evaluate lower bits.
+            u = nxt[u][v_bit ^ 1];
+        } else {
+            // If k's bit is 0, we MUST take v_bit to keep the XOR bit 0.
+            u = nxt[u][v_bit];
+        }
+    }
+    return ans;
+}
+// clear() insert(), remove() query()
+```
 ## Xor Basis
 ```cpp {.numberLines}
 template<const int Log = 30, typename T = ll>
