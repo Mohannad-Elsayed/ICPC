@@ -35,31 +35,35 @@ int dx[] = {1, -1, 0, 0, 1, 1, -1, -1};
 int dy[] = {0, 0, 1, -1, -1, 1, -1, 1};
 string dd[] = {"U", "D", "R", "L", "UL", "UR", "DL", "DR"};
 
-class TrieString {
+struct TrieString {
     struct Node {
-        Node* child[10]{};
-        int prefixCount = 0;
-
-        Node() = default;
+        int child[10], prefixCount = 0;
+        bool end = false;
+        Node() {
+            fill(child, child + 10, -1);
+        }
     };
 
-    Node* root;
-
-public:
-    TrieString() : root(new Node()) {}
+    vector<Node> tr;
+    TrieString() {
+        tr.push_back(Node());
+    }
 
     void insert(const string& s) {
-        Node* cur = root;
+        int cur = 0;
         for (char ch : s) {
             int idx = ch;
-            if (!cur->child[idx]) cur->child[idx] = new Node();
-            cur = cur->child[idx];
-            cur->prefixCount++;
+            if (tr[cur].child[idx] == -1) {
+                tr[cur].child[idx] = (int)tr.size();
+                tr.emplace_back();
+            }
+            cur = tr[cur].child[idx];
+            tr[cur].prefixCount++;
         }
     }
 
     string getmx(const string& s) {
-        Node* cur = root;
+        int cur = 0;
         string ans;
         for (char ch : s) {
             int z = 10 - ch;
@@ -67,9 +71,9 @@ public:
                 i += 10;
                 i %= 10;
 
-                if (cur->child[i]) {
+                if (tr[cur].child[i] != -1) {
                     ans.push_back((i+ch)%10+'0');
-                    cur = cur->child[i];
+                    cur = tr[cur].child[i];
                     break;
                 }
 
@@ -80,7 +84,7 @@ public:
     }
 
     string getmn(const string& s) {
-        Node* cur = root;
+        int cur = 0;
         string ans;
         for (char ch : s) {
             int z = 10 - ch;
@@ -88,9 +92,9 @@ public:
                 i += 10;
                 i %= 10;
 
-                if (cur->child[i]) {
+                if (tr[cur].child[i] != -1) {
                     ans.push_back((i+ch)%10+'0');
-                    cur = cur->child[i];
+                    cur = tr[cur].child[i];
                     break;
                 }
 
@@ -102,18 +106,17 @@ public:
 
 
     void erase(const string& s) {
-        Node* cur = root;
+        int cur = 0;
 
         for (char ch : s) {
             int idx = ch;
-            if (!cur->child[idx]) return;
+            if (tr[cur].child[idx] == -1) return;
 
-            Node *next = cur->child[idx];
-            next->prefixCount--;
+            int next = tr[cur].child[idx];
+            tr[next].prefixCount--;
 
-            if(next->prefixCount == 0){
-                delete next;
-                cur->child[idx] = nullptr;
+            if(tr[next].prefixCount == 0){
+                tr[cur].child[idx] = -1;
                 return;
             }
 
@@ -121,6 +124,7 @@ public:
         }
     }
 };
+
 void solve() {
     int n;
     cin >> n;
@@ -141,11 +145,11 @@ void solve() {
     for (auto &x : num) trie.insert(x);
 
     string mx, mn(20, '9');
-    for(auto &x: num){
-        trie.erase(x);
-        mx = max(mx, trie.getmx(x));
-        mn = min(mn, trie.getmn(x));
-        trie.insert(x);
+    for(int i = 0; i < n; i++){
+        if (i)
+        mx = max(mx, trie.getmx(num[i])),
+        mn = min(mn, trie.getmn(num[i]));
+        trie.insert(num[i]);
     }
 
     int go = 0;
