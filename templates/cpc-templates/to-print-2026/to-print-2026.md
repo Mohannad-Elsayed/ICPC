@@ -1,5 +1,26 @@
 \newpage
 # 1. Setup and Utilities
+## Template
+```cpp {.numberLines}
+#include "bits/stdc++.h"
+using namespace std;
+using ll = long long;
+#define int ll
+#define endl '\n'
+void solve() {
+}
+signed main() {
+    cin.tie(0)->sync_with_stdio(0);
+    cin.exceptions(cin.failbit);
+    int tt = 1;
+    // cin >> tt;
+    while (tt--) {
+        solve();
+        cout << '\n';
+    }
+    return 0;
+}
+```
 ## Precompile stdc++.h
 ```cpp {.numberLines}
 sudo g++ -x c++-header -std=c++17 -O0 stdc++.h -o stdc++.h.gch
@@ -596,7 +617,7 @@ else U.mn1 = R.mn1, U.mn2 = min(L.mn1, R.mn2), U.mnc = R.mnc;
     }
 
     void push(int x, int lx, int rx) {
-        if (lx == rx) return void(tree[x].lz_add = 0, tree[x].lz_set = UNSET);
+        if (lx == rx) return tree[x].lz_add = 0, tree[x].lz_set = UNSET, void();
         int m = (lx + rx) >> 1, lc = x * 2 + 1, rc = x * 2 + 2;
         
         if (tree[x].lz_set != UNSET) {
@@ -705,7 +726,7 @@ else U.mn1 = R.mn1, U.mn2 = min(L.mn1, R.mn2), U.mnc = R.mnc;
     void chmax(int l, int r, ll v) { chmax(l, r, v, 0, 0, sz - 1); }
     void assign(int l, int r, ll v) { assign(l, r, v, 0, 0, sz - 1); }
     void add(int l, int r, ll v) { add(l, r, v, 0, 0, sz - 1); }
-    ll sum(int l, int r) { return sum(l, r, 0, 0, sz - 1); }
+    ll qsum(int l, int r) { return sum(l, r, 0, 0, sz - 1); }
     ll qmin(int l, int r) { return qmin(l, r, 0, 0, sz - 1); }
     ll qmax(int l, int r) { return qmax(l, r, 0, 0, sz - 1); }
     ll qgcd(int l, int r) { return qgcd(l, r, 0, 0, sz - 1); }
@@ -1559,6 +1580,35 @@ struct tree {
         return lvl[u] + lvl[v] - 2 * lvl[lca(u, v)];
     }
 };
+```
+## Binary Lifting
+```cpp {.numberLines}
+int Log = __lg(n) + 1;
+vector<vector<int>> lift(n+1, vector<int>(Log, -1));
+function<void(int, int)> dfs2 = [&](int u, int p) {
+    for (auto v : tree[u]) if (v != p) {
+        lift[v][0] = u;
+        for (int l = 1; l < Log && ~lift[v][l-1]; l++)
+                lift[v][l] = lift[ lift[v][l-1] ][l-1];
+        dfs2(v, u);
+    }
+};
+dfs2(root, -1);
+
+if (depth[u] < depth[v])
+    swap(u, v);
+int k = depth[u] - depth[v];
+
+for (int l = Log-1; ~l && ~u; l--) {
+    if (k >> l & 1)
+        u = lift[u][l];
+}
+if (u == v) return u;
+for (int l = Log-1; l > -1; l--) {
+    if (lift[u][l] != lift[v][l])
+        u = lift[u][l], v = lift[v][l];
+}
+return lift[u][0];
 ```
 ## LCA
 ```cpp {.numberLines}
@@ -3012,6 +3062,91 @@ ll permutation_index(vector<int>& p) { // n^2
     return k;
 }
 ```
+## Berlekamp Massey
+```cpp {.numberLines}
+const ll MOD = 1e9+7;
+ll add(ll a, ll b) { return (a + b) % MOD; }
+ll sub(ll a, ll b) { return ((a - b) % MOD + MOD) % MOD; }
+ll mul(ll a, ll b) { return (a * b) % MOD; }
+ll power(ll base, ll exp) {
+    ll res = 1;
+    base %= MOD;
+    while (exp > 0) {
+        if (exp % 2 == 1) res = mul(res, base);
+        base = mul(base, base);
+        exp /= 2;
+    }
+    return res;
+}
+ll modInverse(ll n) {
+    return power(n, MOD - 2); // Valid only if MOD is prime
+}
+// Finds the shortest linear recurrence transition array for a given sequence S
+vector<ll> BerlekampMassey(const vector<ll>& S) {
+    int n = S.size(), L = 0, m = 0;
+    vector<ll> C(n), B(n), T;
+    C[0] = B[0] = 1;
+    ll b = 1;
+
+    for (int i = 0; i < n; i++) {
+        ++m;
+        ll d = S[i] % MOD;
+        for (int j = 1; j <= L; j++) d = add(d, mul(C[j], S[i - j]));
+        if (d == 0) continue;
+
+        T = C;
+        ll coef = mul(d, modInverse(b));
+        for (int j = m; j < n; j++) C[j] = sub(C[j], mul(coef, B[j - m]));
+
+        if (2 * L > i) continue;
+        L = i + 1 - L;
+        B = T;
+        b = d;
+        m = 0;
+    }
+    C.resize(L + 1);
+    C.erase(C.begin());
+    for (auto &x : C) x = sub(0, x);
+    return C;
+}
+// Multiplies two polynomials modulo the characteristic polynomial (tr)
+vector<ll> combine(int n, const vector<ll>& a, const vector<ll>& b, const vector<ll>& tr) {
+    vector<ll> res(n * 2 + 1, 0);
+    for (int i = 0; i < n + 1; i++) {
+        for (int j = 0; j < n + 1; j++) {
+            res[i + j] = add(res[i + j], mul(a[i], b[j]));
+        }
+    }
+    for (int i = 2 * n; i > n; --i) {
+        for (int j = 0; j < n; j++) {
+            res[i - 1 - j] = add(res[i - 1 - j], mul(res[i], tr[j]));
+        }
+    }
+    res.resize(n + 1);
+    return res;
+}
+// S contains the initial sequence values, 'tr' is the transition array from BM.
+// K is 0-indexed, S and tr must be same size
+ll LinearRecurrence(const vector<ll>& S, const vector<ll>& tr, ll k) { // O(N^2 log K)
+    assert(S.size() == tr.size());
+    int n = tr.size();
+    if (n == 0) return 0;
+    if (k < n) return S[k] % MOD;
+
+    vector<ll> pol(n + 1), e(pol);
+    pol[0] = e[1] = 1;
+
+    for (++k; k; k /= 2) {
+        if (k % 2) pol = combine(n, pol, e, tr);
+        e = combine(n, e, e, tr);
+    }
+
+    ll res = 0;
+    for (int i = 0; i < n; i++)
+        res = add(res, mul(pol[i + 1], S[i]));
+    return res;
+}
+```
 
 \newpage
 
@@ -3642,7 +3777,7 @@ namespace sam {
 # 6. Dynamic Programming
 ## LIS
 ```cpp {.numberLines}
-int lis_size(vector<int>& nums) {
+int lis_size(const vector<int>& nums) {
     vector<int> tail;
     for (auto x : nums) {
         auto it = lower_bound(tail.begin(), tail.end(), x);
@@ -4023,6 +4158,124 @@ struct basis {
         auto res = l;
         for(int i = 0; i < Log; i++) if(r.a[i]) res.add(r.a[i]);
         return res;
+    }
+};
+```
+## N-SAT
+```cpp {.numberLines}
+struct nsat {
+    int n;
+    vector<vector<int>> lit, g;
+    vector<int> occ, pos, neg, val, stk, lvl;
+
+    nsat(int n) : n(n), g(2 * n), occ(2 * n), val(n, -1) {}
+
+    // Pass a list of pairs: {variable_index, is_true}
+    // Example: { {0, 1}, {1, 0} } -> (x_0 OR NOT x_1)
+    void add_clause(initializer_list<pair<int, int>> vars) {
+        vector<int> c;
+        for (auto [u, is_true] : vars) {
+            int L = (u << 1) | (!is_true);
+            c.push_back(L);
+            g[L].push_back(lit.size());
+            occ[L]++;
+        }
+        lit.push_back(c);
+    }
+
+    void apply(int L) {
+        val[L >> 1] = !(L & 1);
+        stk.push_back(L);
+        for (int c : g[L]) {
+            if (pos[c]++ == 0)
+                for (int u : lit[c]) occ[u]--;
+        }
+        for (int c : g[L ^ 1]) neg[c]++;
+    }
+
+    void undo() {
+        int L = stk.back();
+        stk.pop_back();
+        val[L >> 1] = -1;
+        for (int c : g[L]) {
+            if (--pos[c] == 0)
+                for (int u : lit[c]) occ[u]++;
+        }
+        for (int c : g[L ^ 1]) neg[c]--;
+    }
+
+    bool deduce(int &q_head) {
+        while (q_head < stk.size()) {
+            int L = stk[q_head++];
+            for (int c : g[L ^ 1]) {
+                if (pos[c] > 0) continue; // Clause already satisfied
+                if (neg[c] == lit[c].size()) return false; // Conflict found
+
+                if (neg[c] + 1 == lit[c].size()) { // Unit clause triggered
+                    for (int u : lit[c]) {
+                        if (val[u >> 1] == -1) {
+                            apply(u);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        return true;
+    }
+
+    bool ok() {
+        pos.assign(lit.size(), 0);
+        neg.assign(lit.size(), 0);
+        val.assign(n, -1);
+        stk.clear();
+        lvl.clear();
+        int q_head = 0;
+
+        // Force evaluate base unit clauses
+        for (int c = 0; c < lit.size(); ++c) {
+            if (lit[c].empty()) return false;
+            if (lit[c].size() == 1) {
+                int L = lit[c][0];
+                if (val[L >> 1] == -1) apply(L);
+                else if (val[L >> 1] != !(L & 1)) return false;
+            }
+        }
+
+        // Sort variables by frequency for fast O(1) branching
+        vector<int> order(n);
+        iota(order.begin(), order.end(), 0);
+        sort(order.begin(), order.end(), [&](int a, int b) {
+            return occ[a << 1] + occ[a << 1 | 1] > occ[b << 1] + occ[b << 1 | 1];
+        });
+
+        while (true) {
+            if (deduce(q_head)) {
+                // Find next unassigned variable to branch on
+                int s = -1;
+                for (int v : order) {
+                    if (val[v] == -1) { s = v; break; }
+                }
+
+                // If all variables are assigned, we found a satisfying assignment
+                if (s == -1) return true;
+
+                lvl.push_back(stk.size());
+                apply(s << 1); // Guess that variable 's' is True
+            } else {
+                // Conflict! Backtrack to last decision
+                if (lvl.empty()) return false;
+
+                int backtrack_idx = lvl.back();
+                lvl.pop_back();
+
+                int last_guess = stk[backtrack_idx];
+                while (stk.size() > backtrack_idx) undo();
+
+                q_head = stk.size();
+                apply(last_guess ^ 1); // Flip the guess
+            }
+        }
     }
 };
 ```

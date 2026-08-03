@@ -1016,14 +1016,10 @@ struct basis {
 int Log = __lg(n) + 1;
 vector<vector<int>> lift(n+1, vector<int>(Log, -1));
 function<void(int, int)> dfs2 = [&](int u, int p) {
-    for (auto v : tree[u]) {
-        if (v == p) continue;
+    for (auto v : tree[u]) if (v != p) {
         lift[v][0] = u;
-        for (int l = 1; l < Log; l++) {
-            if (lift[v][l-1] == -1)
-                break;
-            lift[v][l] = lift[ lift[v][l-1] ][l-1];
-        }
+        for (int l = 1; l < Log && ~lift[v][l-1]; l++)
+                lift[v][l] = lift[ lift[v][l-1] ][l-1];
         dfs2(v, u);
     }
 };
@@ -1037,8 +1033,7 @@ for (int l = Log-1; ~l && ~u; l--) {
     if (k >> l & 1)
         u = lift[u][l];
 }
-    if (u == v)
-    return u;
+if (u == v) return u;
 for (int l = Log-1; l > -1; l--) {
     if (lift[u][l] != lift[v][l])
         u = lift[u][l], v = lift[v][l];
