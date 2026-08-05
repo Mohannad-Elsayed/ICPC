@@ -534,9 +534,11 @@ bool MillerRabin(long long n) {
         return false;
         
     vector<int> primes = {2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37};
-    for (auto a : primes)
+    for (auto a : primes) {
+        if (n == a) return true;
         if (n % a == 0)
             return false;
+    }
     
     int r = 0;
     long long d = n - 1;

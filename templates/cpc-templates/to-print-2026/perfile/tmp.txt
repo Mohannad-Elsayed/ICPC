@@ -1,6 +1,6 @@
 pandoc \
-"Maths and NT.md"  -o   \
-"Maths and NT.pdf"   \
+"New1.md"  -o   \
+"New1.pdf"   \
 --toc --toc-depth=2 --pdf-engine=lualatex\
  --listings -V geometry:portrait,margin=0.6in \
  -V mainfont="JetBrains Mono" -V sansfont="JetBrains Mono"\

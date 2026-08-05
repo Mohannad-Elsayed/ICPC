@@ -554,7 +554,9 @@ namespace matrices {
 }
 //using namespace matrices;
 
+
 namespace FFT {
+    // [1. CONSTANTS] Modulo and its primitive roots for NTT
     const int mod = 998244353; // 998244353 754974721 167772161
     const int root = 3; // 3 11 3
     const int invRoot = 332748118; // 332748118 617706590 55924054
@@ -570,6 +572,9 @@ namespace FFT {
         }
         return res;
     }
+
+    // [3. GENERATOR] O(sqrt(mod) log mod) - Run locally to find
+    // root/invRoot for a new prime mod
     void primitiveRoot() {
         int phi = mod - 1;
         vector<int> fac;
@@ -595,6 +600,7 @@ namespace FFT {
     using cd = complex<double>;
     double pi = acos(-1);
 
+    // [4. FFT CORE] O(N log N) - Used internally by complex multiplication
     void fft(vector<cd> &a, bool invert) {
         int n = (int)a.size();
         for (int i = 1, j = 0; i < n; i++) {
@@ -614,6 +620,10 @@ namespace FFT {
         }
         if(invert) for(cd &x : a) x /= n;
     }
+
+    // [5. FFT MULTIPLY] O(N log N) - Multiplies polynomials without
+    // modulo. Returns exact integers.
+    // Packs 'a' into real and 'b' into imag to save one FFT pass.
     vector<int64_t> mul(vector<int> const &a, vector<int> const &b) {
         int N = 1;
         while (N < a.size() + b.size() - 1) N <<= 1;
@@ -628,6 +638,9 @@ namespace FFT {
         return ans;
     }
 
+    // [6. WILDCARD MATCHING] O(N log N) - Returns starting indices of
+    // pattern 't' in text 's'.
+    // Supports '?' as wildcard. Returns 0-based indices.
     vector<int> string_matching(string &s, string &t) {
         if (t.size() > s.size()) return {};
         int n = s.size(), m = t.size();
@@ -647,10 +660,13 @@ namespace FFT {
         auto s2t2 = mul(s2, t2);
         auto s3t1 = mul(s3, t1);
         vector<int> oc;
-        for(int i = m - 1; i < n; i++) if(s1t3[i] - s2t2[i] * 2 + s3t1[i] == 0) oc.push_back(i - m + 1);
+        for(int i = m - 1; i < n; i++)
+            if(s1t3[i] - s2t2[i] * 2 + s3t1[i] == 0)
+                oc.push_back(i - m + 1);
         return oc;
     }
 
+    // [7. NTT CORE] O(N log N) - Used internally by modular multiplication
     void ntt(vector<int> &a, bool invert) {
         int n = (int)a.size();
         for (int i = 1, j = 0; i < n; i++) {
@@ -672,8 +688,10 @@ namespace FFT {
             for(int & x : a) x = mul(x, n_1);
         }
     }
+
+    // [8. NTT MULTIPLY] O(N log N) - Multiplies polynomials modulo 'mod'.
     vector<int> mulMod(vector<int> a, vector<int> b) {
-        int N = 1;
+        int N = 1, sz = a.size() + b.size();
         while (N < a.size() + b.size() - 1) N <<= 1;
         a.resize(N);
         b.resize(N);
@@ -681,15 +699,19 @@ namespace FFT {
         for(int i = 0; i < N; i++)
             a[i] = int(a[i] * 1LL * b[i] % mod);
         ntt(a, true);
+        a.resize(sz - 1);
         return a;
     }
 
+    // [9. FWHT AND/OR/XOR] O(N log N) - Bitwise convolutions.
+    // N must be power of 2.
     void fwht_and(vector<ll>& a, bool invert) {
         int n = a.size();
         for (int len = 1; 2 * len <= n; len <<= 1) {
             for (int i = 0; i < n; i += 2 * len) {
                 for (int j = 0; j < len; ++j) {
-                    a[i + j] = (a[i + j] + (invert? -1: 1) * a[i + j + len] + mod) % mod;
+                    a[i + j] = (a[i + j] +
+                        (invert? -1: 1) * a[i + j + len] + mod) % mod;
                 }
             }
         }
@@ -699,7 +721,8 @@ namespace FFT {
         for (int len = 1; 2 * len <= n; len <<= 1) {
             for (int i = 0; i < n; i += 2 * len) {
                 for (int j = 0; j < len; ++j) {
-                    a[i + j + len] = (a[i + j + len] + (invert? -1: 1) * a[i + j] + mod) % mod;
+                    a[i + j + len] = (a[i + j + len] +
+                        (invert? -1: 1) * a[i + j] + mod) % mod;
                 }
             }
         }
@@ -723,11 +746,15 @@ namespace FFT {
             for (ll &x : a) x = x * inv_n % mod;
         }
     }
+
+    // [10. CONVOLUTION RUNNER] O(N log N) - Pass fwht_and,
+    // fwht_or, or fwht_xor as 'fun'.
+    // Solves for C[k] = sum(A[i] * B[j]) where i (op) j = k.
     template<typename F>
     vector<ll> convolution(vector<ll> a, vector<ll> b, F const &fun) {
         int n = 1;
         while (n < max(a.size(), b.size())) n <<= 1;
-        a.resize(n), b.resize(n);
+        a.resize(n), b.resize(n); // Resizes automatically to next power of 2
         fun(a, false);
         fun(b, false);
         for (int i = 0; i < n; ++i) a[i] = a[i] * b[i] % mod;
@@ -735,6 +762,7 @@ namespace FFT {
         return a;
     }
 }
+
 
 namespace bigNumber {
     using u128 = __uint128_t;
