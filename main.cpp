@@ -15,16 +15,13 @@ signed main() {
 #endif
     cin.exceptions(cin.failbit);
     int t = 1;
-    // cin >> t;
+    cin >> t;
     while(t--) {
         solve();
         if(t) cout << '\n';
     }return 0;
 }
 
-
-
 void solve() {
-    vector<ll> v {1, 2, 3, 4, 5};
-    print(power_tower(v, 1, 4, 1000000007));
+
 }

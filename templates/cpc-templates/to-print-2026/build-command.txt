@@ -1,0 +1,10 @@
+pandoc \
+"Misc.md"  -o   \
+"Misc.pdf"   \
+--toc --toc-depth=2 --pdf-engine=lualatex\
+ --listings -V geometry:portrait,margin=0.6in \
+ -V mainfont="JetBrains Mono" -V sansfont="JetBrains Mono"\
+  -V monofont="JetBrains Mono" -V monofontoptions="RawFeature=-calt" \
+  -V fontsize=9pt -V header-includes="\lstset{basicstyle=\ttfamily, \
+  keywordstyle=\ttfamily, stringstyle=\ttfamily, commentstyle=\ttfamily, \
+  numberstyle=\tiny, xleftmargin=1.5em}"
