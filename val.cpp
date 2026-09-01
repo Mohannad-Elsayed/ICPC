@@ -1,51 +1,64 @@
 #include "testlib.h"
-#include <set>
+#include <vector>
+#include <numeric>
 
 using namespace std;
 
-const int MAX_SUM_N = 2000;
-const int MAX_COORD = 1'000'000'000;
+const int MAX_N = 100'000;
+const int MAX_A = 100'000;
+
+// Disjoint Set Union (DSU) to verify the graph is a single connected tree without cycles
+struct DSU {
+    vector<int> p;
+    DSU(int n) {
+        p.resize(n + 1);
+        iota(p.begin(), p.end(), 0);
+    }
+    int get(int x) {
+        return p[x] == x ? x : p[x] = get(p[x]);
+    }
+    bool unite(int x, int y) {
+        x = get(x);
+        y = get(y);
+        if (x == y) return false;
+        p[x] = y;
+        return true;
+    }
+};
 
 int main(int argc, char* argv[]) {
     registerValidation(argc, argv);
 
-    int t = inf.readInt(1, 2000, "t");
+    // 1. Read the number of vertices (n)
+    int n = inf.readInt(1, MAX_N, "n");
     inf.readEoln();
 
-    int sum_n = 0;
-
-    for (int test = 1; test <= t; test++) {
-        setTestCase(test);
-
-        int n = inf.readInt(0, 2000, "n");
-        inf.readEoln();
-
-        sum_n += n;
-        ensuref(sum_n <= MAX_SUM_N, "Sum of n exceeds %d", MAX_SUM_N);
-
-        set<pair<int, int>> used_coords;
-
-        // Read Asteroids
-        for (int i = 0; i < n; i++) {
-            int a = inf.readInt(1, MAX_COORD, "a_i");
+    // 2. Read the n space-separated array values (a_i)
+    for (int i = 1; i <= n; i++) {
+        inf.readInt(1, MAX_A, "a_i");
+        if (i < n) {
             inf.readSpace();
-            int b = inf.readInt(1, MAX_COORD, "b_i");
-            inf.readEoln();
-
-            ensuref(used_coords.insert({a, b}).second,
-                    "Asteroid coordinates must be distinct. Duplicate found at (%d, %d)", a, b);
         }
+    }
+    inf.readEoln();
 
-        // Read Ship
-        int x_s = inf.readInt(1, MAX_COORD, "x_s");
+    // 3. Read the n-1 edges and validate tree properties
+    DSU dsu(n);
+    for (int i = 1; i <= n - 1; i++) {
+        int u = inf.readInt(1, n, "u");
         inf.readSpace();
-        int y_s = inf.readInt(1, MAX_COORD, "y_s");
+        int v = inf.readInt(1, n, "v");
         inf.readEoln();
 
-        ensuref(used_coords.insert({x_s, y_s}).second,
-                "Ship coordinates must be distinct from asteroids. Conflict at (%d, %d)", x_s, y_s);
+        // Check for self-loops
+        ensuref(u != v, "Self-loops are not allowed: edge between %d and %d", u, v);
+
+        // Ensure no cycles or parallel edges exist
+        ensuref(dsu.unite(u, v), "The graph contains a cycle or parallel edges. It is not a valid tree.");
     }
 
+    // Ensure there is no trailing garbage in the input file
     inf.readEof();
+
     return 0;
 }

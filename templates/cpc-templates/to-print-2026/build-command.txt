@@ -1,6 +1,6 @@
 pandoc \
-"Misc.md"  -o   \
-"Misc.pdf"   \
+"New1.md"  -o   \
+"Ziad.pdf"   \
 --toc --toc-depth=2 --pdf-engine=lualatex\
  --listings -V geometry:portrait,margin=0.6in \
  -V mainfont="JetBrains Mono" -V sansfont="JetBrains Mono"\
